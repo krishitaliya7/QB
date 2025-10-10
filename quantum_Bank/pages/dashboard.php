@@ -1,223 +1,372 @@
-<?php
-include '../includes/db_connect.php';
-include '../includes/session.php';
-requireLogin();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuantumBank Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for spending analytics chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Custom Tailwind extensions or overrides */
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .gradient-bg {
+      background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+    }
+    .card-hover {
+      transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .card-hover:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    /* Responsive adjustments */
+    @media (min-width: 768px) {
+      .dashboard-layout {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 2rem;
+      }
+    }
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+    /* Refined chart styling */
+    #spendingChart {
+      max-height: 200px; /* Smaller chart size */
+    }
+  </style>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+</head>
+<body class="bg-gray-50 min-h-screen font-sans antialiased">
 
-$page_css = 'index.css';
-
-$user_id = $_SESSION['user_id'];
-// Check email verification
-$verified = false;
-try {
-    $stmt = $pdo->prepare('SELECT verified FROM users WHERE id = ? LIMIT 1');
-    $stmt->execute([$user_id]);
-    $r = $stmt->fetch();
-    $verified = $r && $r['verified'];
-} catch (Exception $e) { }
-$stmt = $pdo->prepare("SELECT * FROM accounts WHERE user_id = ?");
-$stmt->execute([$user_id]);
-$accounts = $stmt->fetchAll();
-$stmt = $pdo->prepare("SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 5");
-$stmt->execute([$user_id]);
-$transactions = $stmt->fetchAll();
-$stmt = $pdo->prepare("SELECT * FROM loans WHERE user_id = ?");
-$stmt->execute([$user_id]);
-$loans = $stmt->fetchAll();
-?>
-<?php include '../includes/header.php'; ?>
-
-<!-- Dashboard Hero Section -->
-<section class="gradient-bg text-white pt-16 pb-12">
-    <div class="container mx-auto px-4">
-        <h1 class="text-3xl md:text-4xl font-bold mb-4">Welcome back, <?php echo htmlspecialchars($_SESSION['username']); ?>!</h1>
-        <p class="text-xl text-blue-100">Your financial command center - manage accounts, track spending, and more.</p>
+  <!-- Header Section -->
+  <header class="gradient-bg text-white p-6">
+    <div class="container mx-auto px-4 flex justify-between items-center">
+      <h1 class="text-2xl md:text-3xl font-bold">QuantumBank</h1>
+      <nav class="hidden md:flex space-x-6">
+        <a href="#" class="hover:underline">Dashboard</a>
+        <a href="#" class="hover:underline">Accounts</a>
+        <a href="#" class="hover:underline">Transactions</a>
+        <a href="#" class="hover:underline">Loans</a>
+        <a href="#" class="hover:underline">Settings</a>
+      </nav>
+      <button class="md:hidden text-white focus:outline-none">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+      </button>
     </div>
-</section>
+  </header>
 
-<!-- Main Dashboard Content -->
-<div class="container mx-auto px-4 py-8">
-
-    <!-- Accounts Section -->
-    <section class="mb-12">
-        <h2 class="text-2xl font-bold text-gray-800 mb-6">Your Accounts</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <?php foreach ($accounts as $account): ?>
-                <div class="bg-white rounded-xl p-6 card-hover shadow-lg">
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <h3 class="text-lg font-bold text-gray-800"><?php echo htmlspecialchars($account['account_type']); ?> Account</h3>
-                            <p class="text-gray-500">**** **** **** <?php echo htmlspecialchars(substr($account['account_number'] ?? $account['id'], -4)); ?></p>
-                        </div>
-                        <div class="bg-blue-100 p-2 rounded-lg">
-                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                        </div>
-                    </div>
-                    <div class="border-t border-gray-200 pt-4">
-                        <p class="text-3xl font-bold text-gray-800">$<?php echo number_format($account['balance'], 2); ?></p>
-                        <p class="text-gray-500">Available balance</p>
-                        <div class="flex justify-between mt-4">
-                            <button class="text-blue-600 hover:underline text-sm">Details</button>
-                            <a href="payments.php" class="text-blue-600 hover:underline text-sm">Transfer</a>
-                        </div>
-                    </div>
-                </div>
-            <?php endforeach; ?>
-        </div>
-    </section>
-
-    <!-- Recent Transactions and Spending Analytics -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+  <!-- Main Content -->
+  <main class="container mx-auto px-4 py-8 md:py-12">
+    <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6 md:mb-8">
+      Welcome back, <span id="dashboardUsername">Krish</span>!
+    </h2>
+    
+    <div class="mb-8 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+      <p class="text-sm text-gray-600 mb-2">Available Balance</p>
+      <p class="text-3xl font-bold text-gray-800" id="currentBalance">$8,450.23</p>
+      <p class="text-xs text-gray-500">Updated: October 10, 2025</p>
+    </div>
+    
+    <div class="dashboard-layout grid grid-cols-1 gap-6 md:gap-8">
+      <!-- Main Content Area -->
+      <div class="space-y-8">
+        <!-- Accounts Overview -->
+        <section>
+          <h3 class="text-xl md:text-2xl font-bold text-gray-800 mb-4">Your Accounts</h3>
+          <div id="accountsContainer" class="dashboard-grid"></div>
+        </section>
 
         <!-- Recent Transactions -->
-        <section class="bg-white rounded-xl p-6 shadow-lg">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Recent Transactions</h3>
+        <section>
+          <h3 class="text-xl md:text-2xl font-bold text-gray-800 mb-4">Recent Transactions</h3>
+          <div class="bg-white shadow-md rounded-xl overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead>
-                        <tr class="border-b border-gray-200">
-                            <th class="text-left py-2 px-4 font-semibold text-gray-600">Date</th>
-                            <th class="text-left py-2 px-4 font-semibold text-gray-600">Description</th>
-                            <th class="text-left py-2 px-4 font-semibold text-gray-600">Amount</th>
-                            <th class="text-left py-2 px-4 font-semibold text-gray-600">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($transactions as $transaction): ?>
-                            <tr class="border-b border-gray-100">
-                                <td class="py-3 px-4 text-sm text-gray-500"><?php echo htmlspecialchars(date('M d, Y', strtotime($transaction['created_at']))); ?></td>
-                                <td class="py-3 px-4">
-                                    <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($transaction['description']); ?></div>
-                                </td>
-                                <td class="py-3 px-4 text-sm <?php echo $transaction['amount'] >= 0 ? 'text-green-600' : 'text-red-600'; ?>">
-                                    <?php echo $transaction['amount'] >= 0 ? '+' : ''; ?>$<?php echo number_format(abs($transaction['amount']), 2); ?>
-                                </td>
-                                <td class="py-3 px-4">
-                                    <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">Completed</span>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th scope="col" class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th scope="col" class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                    <th scope="col" class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th scope="col" class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="transactionsTable" class="bg-white divide-y divide-gray-200"></tbody>
+              </table>
             </div>
-            <div class="mt-4">
-                <a href="transactions.php" class="text-indigo-600 hover:underline text-sm">View all transactions →</a>
+            <div class="p-4 text-right">
+              <a href="#" class="text-blue-600 hover:underline text-sm">View all transactions →</a>
             </div>
+          </div>
         </section>
 
-        <!-- Spending Analytics -->
-        <section class="bg-white rounded-xl p-6 shadow-lg">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Spending Analytics</h3>
-            <div class="h-64">
-                <canvas id="spendingChart"></canvas>
+        <!-- Loan Applications -->
+        <section>
+          <h3 class="text-xl md:text-2xl font-bold text-gray-800 mb-4">Your Loan Applications</h3>
+          <div class="bg-white shadow-md rounded-xl overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th scope="col" class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loan Type</th>
+                    <th scope="col" class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th scope="col" class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Interest Rate</th>
+                    <th scope="col" class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Term</th>
+                    <th scope="col" class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="loansTable" class="bg-white divide-y divide-gray-200"></tbody>
+              </table>
             </div>
-            <p class="text-sm text-gray-500 mt-4">Track your spending patterns across categories</p>
+          </div>
         </section>
+      </div>
+
+      <!-- Sidebar Area -->
+      <div class="space-y-8">
+        <!-- Spending Analytics Chart -->
+        <section class="bg-white p-4 md:p-6 rounded-xl shadow-md">
+          <h3 class="text-lg md:text-xl font-bold text-gray-800 mb-3">Spending Analytics</h3>
+          <canvas id="spendingChart" class="w-full"></canvas>
+          <p class="text-xs text-gray-500 mt-3 text-center">Monthly spending by category</p>
+        </section>
+
+        <!-- Quick Actions -->
+        <section class="bg-white p-4 md:p-6 rounded-xl shadow-md">
+          <h3 class="text-lg md:text-xl font-bold text-gray-800 mb-4">Quick Actions</h3>
+          <div class="grid grid-cols-1 gap-4">
+            <button id="transferBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+              </svg>
+              Make a Transfer
+            </button>
+            <button class="w-full bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+              </svg>
+              Pay Bills
+            </button>
+            <button class="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+              </svg>
+              Manage Cards
+            </button>
+            <button class="w-full bg-orange-600 text-white py-3 rounded-lg font-medium hover:bg-orange-700 transition flex items-center justify-center">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              Apply for Loan
+            </button>
+          </div>
+        </section>
+      </div>
     </div>
+  </main>
 
-    <!-- Loan Applications -->
-    <section class="mb-12">
-        <h2 class="text-2xl font-bold text-gray-800 mb-6">Your Loan Applications</h2>
-        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="text-left py-3 px-6 font-semibold text-gray-600">Loan Type</th>
-                            <th class="text-left py-3 px-6 font-semibold text-gray-600">Amount</th>
-                            <th class="text-left py-3 px-6 font-semibold text-gray-600">Interest Rate</th>
-                            <th class="text-left py-3 px-6 font-semibold text-gray-600">Term</th>
-                            <th class="text-left py-3 px-6 font-semibold text-gray-600">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($loans as $loan): ?>
-                            <tr class="border-b border-gray-100">
-                                <td class="py-4 px-6"><?php echo htmlspecialchars($loan['loan_type']); ?></td>
-                                <td class="py-4 px-6">$<?php echo number_format($loan['amount'], 2); ?></td>
-                                <td class="py-4 px-6"><?php echo number_format($loan['interest_rate'], 2); ?>%</td>
-                                <td class="py-4 px-6"><?php echo htmlspecialchars($loan['term_months']); ?> months</td>
-                                <td class="py-4 px-6">
-                                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"><?php echo htmlspecialchars($loan['status']); ?></span>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+  <!-- Modal Example (for interactive components) -->
+  <div id="transferModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden">
+    <div class="bg-white p-6 rounded-xl max-w-md w-full">
+      <h3 class="text-xl font-bold mb-4">Make a Transfer</h3>
+      <form>
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700">From Account</label>
+          <select class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+            <option>Premium Checking</option>
+            <option>High-Yield Savings</option>
+          </select>
         </div>
-    </section>
-
-    <!-- Quick Actions -->
-    <section>
-        <h2 class="text-2xl font-bold text-gray-800 mb-6">Quick Actions</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <a href="payments.php" class="bg-blue-600 text-white p-4 rounded-lg hover:bg-blue-700 transition text-center">
-                <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
-                </svg>
-                Transfer Money
-            </a>
-            <a href="payments.php" class="bg-green-600 text-white p-4 rounded-lg hover:bg-green-700 transition text-center">
-                <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                </svg>
-                Pay Bills
-            </a>
-            <a href="cards.php" class="bg-blue-600 text-white p-4 rounded-lg hover:bg-blue-700 transition text-center">
-                <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
-                </svg>
-                Manage Cards
-            </a>
-            <a href="loan.php" class="bg-orange-600 text-white p-4 rounded-lg hover:bg-orange-700 transition text-center">
-                <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                Apply for Loan
-            </a>
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700">To Account</label>
+          <input type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" placeholder="Account Number">
         </div>
-    </section>
-</div>
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700">Amount</label>
+          <input type="number" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" placeholder="$0.00">
+        </div>
+        <div class="flex justify-end space-x-2">
+          <button type="button" id="closeModal" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md">Transfer</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-<script>
-// Spending Chart
-document.addEventListener('DOMContentLoaded', function() {
+  <script>
+    // Sample Data
+    const username = 'Krish';
+    const accounts = [
+      { type: 'Premium Checking', number: '•••• 5678', balance: 8450.23 },
+      { type: 'High-Yield Savings', number: '•••• 9012', balance: 32500.00 },
+      { type: 'Business Checking', number: '•••• 3456', balance: 15200.50 }
+    ];
+
+    const transactions = [
+      { date: '2023-06-15', description: 'Grocery Store', amount: -87.34, status: 'Completed' },
+      { date: '2023-06-14', description: 'Salary Deposit', amount: 4200.00, status: 'Completed' },
+      { date: '2023-06-12', description: 'Electric Bill', amount: -145.67, status: 'Completed' },
+      { date: '2023-06-11', description: 'Online Shopping', amount: -230.10, status: 'Completed' },
+      { date: '2023-06-10', description: 'Restaurant', amount: -55.00, status: 'Completed' }
+    ];
+
+    const loans = [
+      { type: 'Personal Loan', amount: 10000, interest: 5.5, term: 36, status: 'Approved' },
+      { type: 'Home Loan', amount: 200000, interest: 3.8, term: 360, status: 'Pending' },
+      { type: 'Auto Loan', amount: 25000, interest: 4.2, term: 60, status: 'Approved' }
+    ];
+
+    // Calculate total balance
+    const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
+
+    // Populate Username and Total Balance
+    document.getElementById('dashboardUsername').textContent = username;
+    document.getElementById('currentBalance').textContent = `$${totalBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+    // Populate Accounts
+    const accountsContainer = document.getElementById('accountsContainer');
+    accounts.forEach(account => {
+      const accountCard = document.createElement('div');
+      accountCard.className = 'bg-white rounded-xl p-6 shadow card-hover';
+      accountCard.innerHTML = `
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h4 class="text-lg font-semibold text-gray-800">${account.type}</h4>
+            <p class="text-gray-500 mb-2">${account.number}</p>
+          </div>
+          <div class="bg-blue-100 p-2 rounded-lg">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-gray-900">$${account.balance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+        <p class="text-gray-500">Available balance</p>
+        <div class="flex justify-between mt-4">
+          <button class="text-blue-600 hover:underline text-sm">Details</button>
+          <button class="text-blue-600 hover:underline text-sm">Transfer</button>
+        </div>
+      `;
+      accountsContainer.appendChild(accountCard);
+    });
+
+    // Populate Transactions
+    const transactionsTable = document.getElementById('transactionsTable');
+    transactions.forEach(tx => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">${tx.date}</td>
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">${tx.description}</td>
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}">
+          ${tx.amount >= 0 ? '+' : ''}$${Math.abs(tx.amount).toFixed(2)}
+        </td>
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+          <span class="inline-block px-2 py-1 text-xs font-medium rounded-full ${tx.status === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">${tx.status}</span>
+        </td>
+      `;
+      transactionsTable.appendChild(tr);
+    });
+
+    // Populate Loans
+    const loansTable = document.getElementById('loansTable');
+    loans.forEach(loan => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">${loan.type}</td>
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${loan.amount.toLocaleString()}</td>
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">${loan.interest}%</td>
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">${loan.term} months</td>
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+          <span class="inline-block px-2 py-1 text-xs font-medium rounded-full ${loan.status === 'Approved' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">${loan.status}</span>
+        </td>
+      `;
+      loansTable.appendChild(tr);
+    });
+
+    // Spending Analytics Chart
     const ctx = document.getElementById('spendingChart').getContext('2d');
     const spendingData = {
-        labels: ['Food', 'Transport', 'Entertainment', 'Utilities', 'Shopping', 'Other'],
-        datasets: [{
-            data: [450, 320, 180, 280, 150, 120],
-            backgroundColor: [
-                '#0b74de',
-                '#055aa8',
-                '#10b981',
-                '#f59e0b',
-                '#ef4444',
-                '#6b7280'
-            ],
-            hoverOffset: 4
-        }]
+      labels: ['Food', 'Utilities', 'Shopping', 'Transport', 'Entertainment', 'Other'],
+      datasets: [{
+        label: 'Spending',
+        data: [450, 280, 230, 180, 150, 120],
+        backgroundColor: [
+          '#3b82f6', // blue-500
+          '#1d4ed8', // blue-700
+          '#10b981', // green-500
+          '#f59e0b', // amber-500
+          '#ef4444', // red-500
+          '#6b7280'  // gray-500
+        ],
+        borderWidth: 0, // Remove borders for cleaner look
+        hoverOffset: 8
+      }]
     };
-
     new Chart(ctx, {
-        type: 'doughnut',
-        data: spendingData,
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                },
-                title: {
-                    display: true,
-                    text: 'Monthly Spending by Category'
-                }
+      type: 'doughnut',
+      data: spendingData,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false, // Allow custom height
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              font: {
+                size: 12, // Smaller, elegant font
+                family: 'Inter',
+                weight: '500'
+              },
+              padding: 15,
+              usePointStyle: true, // Circular legend markers
+              pointStyle: 'circle'
             }
+          },
+          title: {
+            display: false // Remove title for minimalism
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            titleFont: { family: 'Inter', size: 12 },
+            bodyFont: { family: 'Inter', size: 12 },
+            padding: 8
+          }
+        },
+        cutout: '65%', // Thinner doughnut for elegance
+        animation: {
+          animateScale: true,
+          animateRotate: true
         }
+      }
     });
-});
-</script>
 
-<?php include '../includes/footer.php'; ?>
+    // Interactive Modal for Transfer
+    const transferBtn = document.getElementById('transferBtn');
+    const transferModal = document.getElementById('transferModal');
+    const closeModal = document.getElementById('closeModal');
+
+    transferBtn.addEventListener('click', () => {
+      transferModal.classList.remove('hidden');
+    });
+
+    closeModal.addEventListener('click', () => {
+      transferModal.classList.add('hidden');
+    });
+
+    // Prevent form submission for demo
+    transferModal.querySelector('form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      alert('Transfer processed successfully!');
+      transferModal.classList.add('hidden');
+    });
+  </script>
+
+</body>
+</html>

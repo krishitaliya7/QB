@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financial Calculators - QuantumBank</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Custom Tailwind extensions or overrides */
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .gradient-bg {
+      background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+    }
+    .card-hover {
+      transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .card-hover:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    .calculator-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+    /* Slider styling */
+    input[type="range"] {
+      accent-color: #3b82f6;
+    }
+    /* Responsive adjustments */
+    @media (min-width: 768px) {
+      .container {
+        max-width: 1200px;
+      }
+    }
+    /* Chart container */
+    .chart-container {
+      max-height: 200px;
+    }
+  </style>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+</head>
+<body class="bg-gray-50 min-h-screen font-sans antialiased">
+
+  <!-- Header Section -->
+  <header class="gradient-bg text-white p-6 sticky top-0 z-50 shadow-md">
+    <div class="container mx-auto px-4 flex justify-between items-center">
+      <a href="index.php" class="text-2xl md:text-3xl font-bold hover:opacity-90">QuantumBank</a>
+      <nav class="hidden md:flex space-x-6 text-md font-medium">
+        <a href="dashboard.php" class="hover:underline focus:outline-none focus:ring-2 focus:ring-blue-300 rounded">Dashboard</a>
+        <a href="#" class="hover:underline focus:outline-none focus:ring-2 focus:ring-blue-300 rounded">Accounts</a>
+        <a href="payments.php" class="hover:underline focus:outline-none focus:ring-2 focus:ring-blue-300 rounded">Payments</a>
+        <a href="cards.php" class="hover:underline focus:outline-none focus:ring-2 focus:ring-blue-300 rounded">Cards</a>
+        <a href="#" class="hover:underline focus:outline-none focus:ring-2 focus:ring-blue-300 rounded">Invest</a>
+        <a href="Cards.html" class="hover:underline font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300 rounded">Calculators</a>
+        <a href="atm-locator.html" class="hover:underline focus:outline-none focus:ring-2 focus:ring-blue-300 rounded">ATM Locator</a>
+        <a href="about.html" class="hover:underline focus:outline-none focus:ring-2 focus:ring-blue-300 rounded">About Us</a>
+        <a href="contact.html" class="hover:underline focus:outline-none focus:ring-2 focus:ring-blue-300 rounded">Contact Us</a>
+        <a href="Login.html" class="hover:underline focus:outline-none focus:ring-2 focus:ring-blue-300 rounded">Login</a>
+      </nav>
+      <button id="mobileMenuBtn" class="md:hidden focus:outline-none">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+      </button>
+    </div>
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="hidden md:hidden bg-blue-700 text-white p-4">
+      <nav class="flex flex-col space-y-4">
+        <a href="dashboard.php" class="hover:underline">Dashboard</a>
+        <a href="#" class="hover:underline">Accounts</a>
+        <a href="payments.php" class="hover:underline">Payments</a>
+        <a href="cards.php" class="hover:underline">Cards</a>
+        <a href="#" class="hover:underline">Invest</a>
+        <a href="CalC.html" class="hover:underline font-semibold">Calculators</a>
+        <a href="atm_locator.php" class="hover:underline">ATM Locator</a>
+        <a href="about.html" class="hover:underline">About Us</a>
+        <a href="contact.html" class="hover:underline">Contact Us</a>
+        <a href="login.php" class="hover:underline">Login</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container mx-auto px-4 py-8 md:py-12">
+    <!-- Hero Section -->
+    <section class="mb-8 md:mb-12 text-center">
+      <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-4">Financial Calculators</h2>
+      <p class="text-gray-600 text-base md:text-lg max-w-2xl mx-auto">Plan your financial future with our easy-to-use calculators for loans, savings, and fixed deposits.</p>
+    </section>
+
+    <!-- Calculators Grid -->
+    <div class="calculator-grid">
+      <!-- Loan EMI Calculator -->
+      <div class="bg-white rounded-xl p-6 shadow card-hover">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Loan EMI Calculator</h3>
+        <form id="emiForm">
+          <div class="mb-4">
+            <label for="loanAmount" class="block text-sm font-medium text-gray-700">Loan Amount ($)</label>
+            <input type="number" id="loanAmount" min="1000" max="1000000" value="100000" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <input type="range" id="loanAmountSlider" min="1000" max="1000000" value="100000" class="w-full mt-2">
+          </div>
+          <div class="mb-4">
+            <label for="interestRate" class="block text-sm font-medium text-gray-700">Interest Rate (% p.a.)</label>
+            <input type="number" id="interestRate" min="1" max="20" step="0.1" value="7.5" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <input type="range" id="interestRateSlider" min="1" max="20" step="0.1" value="7.5" class="w-full mt-2">
+          </div>
+          <div class="mb-4">
+            <label for="loanTenure" class="block text-sm font-medium text-gray-700">Tenure (Years)</label>
+            <input type="number" id="loanTenure" min="1" max="30" value="10" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <input type="range" id="loanTenureSlider" min="1" max="30" value="10" class="w-full mt-2">
+          </div>
+          <button type="button" id="calculateEmi" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition">Calculate EMI</button>
+        </form>
+        <div id="emiResult" class="mt-4 text-center hidden">
+          <p class="text-lg font-semibold text-gray-800">Monthly EMI: <span id="emiValue"></span></p>
+          <p class="text-sm text-gray-600">Total Interest: <span id="emiInterest"></span></p>
+          <div class="chart-container"><canvas id="emiChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Savings Growth Calculator -->
+      <div class="bg-white rounded-xl p-6 shadow card-hover">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Savings Growth Calculator</h3>
+        <form id="savingsForm">
+          <div class="mb-4">
+            <label for="initialSavings" class="block text-sm font-medium text-gray-700">Initial Amount ($)</label>
+            <input type="number" id="initialSavings" min="100" max="1000000" value="10000" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <input type="range" id="initialSavingsSlider" min="100" max="1000000" value="10000" class="w-full mt-2">
+          </div>
+          <div class="mb-4">
+            <label for="monthlyContribution" class="block text-sm font-medium text-gray-700">Monthly Contribution ($)</label>
+            <input type="number" id="monthlyContribution" min="0" max="10000" value="500" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <input type="range" id="monthlyContributionSlider" min="0" max="10000" value="500" class="w-full mt-2">
+          </div>
+          <div class="mb-4">
+            <label for="savingsRate" class="block text-sm font-medium text-gray-700">Annual Interest Rate (%)</label>
+            <input type="number" id="savingsRate" min="1" max="15" step="0.1" value="5" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <input type="range" id="savingsRateSlider" min="1" max="15" step="0.1" value="5" class="w-full mt-2">
+          </div>
+          <div class="mb-4">
+            <label for="savingsYears" class="block text-sm font-medium text-gray-700">Years</label>
+            <input type="number" id="savingsYears" min="1" max="50" value="10" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <input type="range" id="savingsYearsSlider" min="1" max="50" value="10" class="w-full mt-2">
+          </div>
+          <button type="button" id="calculateSavings" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition">Calculate Growth</button>
+        </form>
+        <div id="savingsResult" class="mt-4 text-center hidden">
+          <p class="text-lg font-semibold text-gray-800">Future Value: <span id="savingsValue"></span></p>
+          <p class="text-sm text-gray-600">Total Contributions: <span id="savingsContributions"></span></p>
+          <div class="chart-container"><canvas id="savingsChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Fixed Deposit Calculator -->
+      <div class="bg-white rounded-xl p-6 shadow card-hover">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Fixed Deposit Calculator</h3>
+        <form id="fdForm">
+          <div class="mb-4">
+            <label for="principal" class="block text-sm font-medium text-gray-700">Principal Amount ($)</label>
+            <input type="number" id="principal" min="1000" max="1000000" value="50000" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <input type="range" id="principalSlider" min="1000" max="1000000" value="50000" class="w-full mt-2">
+          </div>
+          <div class="mb-4">
+            <label for="fdRate" class="block text-sm font-medium text-gray-700">Interest Rate (% p.a.)</label>
+            <input type="number" id="fdRate" min="1" max="15" step="0.1" value="6.5" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <input type="range" id="fdRateSlider" min="1" max="15" step="0.1" value="6.5" class="w-full mt-2">
+          </div>
+          <div class="mb-4">
+            <label for="fdTenure" class="block text-sm font-medium text-gray-700">Tenure (Years)</label>
+            <input type="number" id="fdTenure" min="1" max="10" value="5" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <input type="range" id="fdTenureSlider" min="1" max="10" value="5" class="w-full mt-2">
+          </div>
+          <div class="mb-4">
+            <label for="compounding" class="block text-sm font-medium text-gray-700">Compounding Frequency</label>
+            <select id="compounding" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+              <option value="1">Annually</option>
+              <option value="2">Semi-Annually</option>
+              <option value="4" selected>Quarterly</option>
+              <option value="12">Monthly</option>
+            </select>
+          </div>
+          <button type="button" id="calculateFd" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition">Calculate Maturity</button>
+        </form>
+        <div id="fdResult" class="mt-4 text-center hidden">
+          <p class="text-lg font-semibold text-gray-800">Maturity Amount: <span id="fdValue"></span></p>
+          <p class="text-sm text-gray-600">Interest Earned: <span id="fdInterest"></span></p>
+          <div class="chart-container"><canvas id="fdChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 text-white py-6">
+    <div class="container mx-auto px-4 text-center">
+      <p>&copy; 2025 QuantumBank. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Mobile Menu Toggle
+    document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+      document.getElementById('mobileMenu').classList.toggle('hidden');
+    });
+
+    // Sync Sliders with Inputs
+    function syncSlider(inputId, sliderId) {
+      const input = document.getElementById(inputId);
+      const slider = document.getElementById(sliderId);
+      input.addEventListener('input', () => {
+        if (input.value >= input.min && input.value <= input.max) {
+          slider.value = input.value;
+        }
+      });
+      slider.addEventListener('input', () => {
+        input.value = slider.value;
+      });
+    }
+
+    // EMI Calculator
+    syncSlider('loanAmount', 'loanAmountSlider');
+    syncSlider('interestRate', 'interestRateSlider');
+    syncSlider('loanTenure', 'loanTenureSlider');
+
+    document.getElementById('calculateEmi').addEventListener('click', () => {
+      const P = parseFloat(document.getElementById('loanAmount').value);
+      const r = parseFloat(document.getElementById('interestRate').value) / 12 / 100;
+      const n = parseFloat(document.getElementById('loanTenure').value) * 12;
+      if (isNaN(P) || isNaN(r) || isNaN(n)) return;
+      const EMI = (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+      const totalPayment = EMI * n;
+      const totalInterest = totalPayment - P;
+      document.getElementById('emiValue').textContent = `$${EMI.toFixed(2)}`;
+      document.getElementById('emiInterest').textContent = `$${totalInterest.toFixed(2)}`;
+      document.getElementById('emiResult').classList.remove('hidden');
+
+      // EMI Chart (Principal vs Interest)
+      const ctx = document.getElementById('emiChart').getContext('2d');
+      if (window.emiChart) window.emiChart.destroy(); // Destroy previous chart
+      window.emiChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: ['Principal', 'Total Interest'],
+          datasets: [{
+            data: [P, totalInterest],
+            backgroundColor: ['#3b82f6', '#ef4444'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 12, family: 'Inter' } } }
+          }
+        }
+      });
+    });
+
+    // Savings Growth Calculator
+    syncSlider('initialSavings', 'initialSavingsSlider');
+    syncSlider('monthlyContribution', 'monthlyContributionSlider');
+    syncSlider('savingsRate', 'savingsRateSlider');
+    syncSlider('savingsYears', 'savingsYearsSlider');
+
+    document.getElementById('calculateSavings').addEventListener('click', () => {
+      let P = parseFloat(document.getElementById('initialSavings').value);
+      const PMT = parseFloat(document.getElementById('monthlyContribution').value);
+      const r = parseFloat(document.getElementById('savingsRate').value) / 100 / 12;
+      const n = parseFloat(document.getElementById('savingsYears').value) * 12;
+      if (isNaN(P) || isNaN(PMT) || isNaN(r) || isNaN(n)) return;
+      let FV = P * Math.pow(1 + r, n);
+      for (let i = 1; i <= n; i++) {
+        FV += PMT * Math.pow(1 + r, n - i);
+      }
+      const totalContributions = P + PMT * n;
+      document.getElementById('savingsValue').textContent = `$${FV.toFixed(2)}`;
+      document.getElementById('savingsContributions').textContent = `$${totalContributions.toFixed(2)}`;
+      document.getElementById('savingsResult').classList.remove('hidden');
+
+      // Savings Chart (Growth over time)
+      const labels = Array.from({length: Math.floor(n/12) + 1}, (_, i) => `Year ${i}`);
+      const data = [];
+      let current = P;
+      data.push(current);
+      for (let year = 1; year <= n/12; year++) {
+        for (let month = 1; month <= 12; month++) {
+          current = current * (1 + r) + PMT;
+        }
+        data.push(current);
+      }
+      const ctx = document.getElementById('savingsChart').getContext('2d');
+      if (window.savingsChart) window.savingsChart.destroy();
+      window.savingsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Savings Growth',
+            data: data,
+            borderColor: '#10b981',
+            fill: true,
+            backgroundColor: 'rgba(16, 185, 129, 0.2)',
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 12, family: 'Inter' } } }
+          },
+          scales: {
+            y: { beginAtZero: false }
+          }
+        }
+      });
+    });
+
+    // Fixed Deposit Calculator
+    syncSlider('principal', 'principalSlider');
+    syncSlider('fdRate', 'fdRateSlider');
+    syncSlider('fdTenure', 'fdTenureSlider');
+
+    document.getElementById('calculateFd').addEventListener('click', () => {
+      const P = parseFloat(document.getElementById('principal').value);
+      const r = parseFloat(document.getElementById('fdRate').value) / 100;
+      const t = parseFloat(document.getElementById('fdTenure').value);
+      const n = parseFloat(document.getElementById('compounding').value);
+      if (isNaN(P) || isNaN(r) || isNaN(t) || isNaN(n)) return;
+      const A = P * Math.pow(1 + r / n, n * t);
+      const interest = A - P;
+      document.getElementById('fdValue').textContent = `$${A.toFixed(2)}`;
+      document.getElementById('fdInterest').textContent = `$${interest.toFixed(2)}`;
+      document.getElementById('fdResult').classList.remove('hidden');
+
+      // FD Chart (Principal vs Interest)
+      const ctx = document.getElementById('fdChart').getContext('2d');
+      if (window.fdChart) window.fdChart.destroy();
+      window.fdChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Principal', 'Interest'],
+          datasets: [{
+            data: [P, interest],
+            backgroundColor: ['#3b82f6', '#f59e0b'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 12, family: 'Inter' } } }
+          },
+          cutout: '65%'
+        }
+      });
+    });
+
+    // Real-time updates on slider/input change
+    ['emiForm', 'savingsForm', 'fdForm'].forEach(formId => {
+      document.getElementById(formId).addEventListener('input', (e) => {
+        if (e.target.type === 'range' || e.target.type === 'number' || e.target.id === 'compounding') {
+          document.getElementById(formId.replace('Form', 'Result')).classList.add('hidden');
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>

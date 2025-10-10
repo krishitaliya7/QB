@@ -94,7 +94,7 @@
     <div class="container mx-auto px-6 py-3 flex justify-between items-center">
       <a href="Bank.php.html" class="text-xl font-bold tracking-tight text-white font-poppins">QuantumBank</a>
       <div class="hidden md:flex items-center space-x-6">
-        <a href="Dashboard.html" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Dashboard">Dashboard</a>
+        <a href="dashboard.php" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Dashboard">Dashboard</a>
         <div class="relative group">
           <a href="#" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Accounts">Accounts</a>
           <div class="absolute hidden group-hover:block bg-white text-gray-800 rounded-lg shadow-lg py-2 z-10">
@@ -103,11 +103,11 @@
             <a href="#" class="block px-4 py-2 hover:bg-gray-100">Business</a>
           </div>
         </div>
-        <a href="Payments.php" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Payments">Payments</a>
+        <a href="payments.php" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Payments">Payments</a>
         <a href="Cards.php" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Cards">Cards</a>
         <a href="#" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Investments">Investments</a>
-        <a href="#" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Calculators">Calculators</a>
-        <a href="atmLocator.php" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="ATM Locator">ATM Locator</a>
+        <a href="CalC.html" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Calculators">Calculators</a>
+        <a href="atm_locator.php" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="ATM Locator">ATM Locator</a>
         <a href="login.php" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Login">Login</a>
         <div id="userNav" class="hidden flex items-center space-x-2">
           <span class="text-white">Welcome, <span id="userName"></span>!</span>
@@ -140,12 +140,12 @@
         <h1 class="text-5xl md:text-6xl font-bold leading-tight mb-4 font-poppins">Banking Evolved for the Digital Age</h1>
         <p class="text-base md:text-lg leading-relaxed mb-8 text-blue-100">Smart financial solutions powered by AI with military-grade security</p>
         <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 justify-center md:justify-start">
-          <a href="open_account.php" class="px-6 py-3 bg-accent text-white rounded-lg font-medium hover:bg-opacity-90 transition transform hover:scale-105 focus:ring-2 focus:ring-accent focus:ring-offset-2">Open Account</a>
+        <a href="open_account.php" class="px-6 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-accent transition transform hover:scale-105 focus:ring-2 focus:ring-accent focus:ring-offset-2">Open Account</a>
           <a href="login.php" class="px-6 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-accent transition transform hover:scale-105 focus:ring-2 focus:ring-accent focus:ring-offset-2">Login to Account</a>
         </div>
       </div>
       <div class="md:w-1/2 flex justify-center p-4">
-        <img src="Big Shoes - Hero.webp" alt="QuantumBank digital banking illustration with futuristic interface" class="w-3/4 md:w-1/2 animate-pulse" loading="lazy">
+        <img src="Big Shoes - Hero.png" alt="QuantumBank digital banking illustration with futuristic interface" class="w-3/4 md:w-1/2 animate-pulse" loading="lazy">
       </div>
     </div>
     
