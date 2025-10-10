@@ -487,7 +487,7 @@
       <h2 class="text-3xl md:text-4xl font-bold mb-6 font-poppins">Ready for Smarter Banking?</h2>
       <p class="text-base md:text-lg text-blue-100 max-w-2xl mx-auto mb-8 leading-relaxed">Join thousands of customers experiencing the future of finance today.</p>
       <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-6">
-        <a href="open_account.php" class="px-6 py-3 bg-accent text-white rounded-lg font-medium hover:bg-opacity-90 transition transform hover:scale-105 focus:ring-2 focus:ring-accent focus:ring-offset-2">Open Account</a>
+        <a href="open_account.php" class="px-6 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-accent transition transform hover:scale-105 focus:ring-2 focus:ring-accent focus:ring-offset-2">Open Account</a>
         <a href="contact.html" class="px-6 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-accent transition transform hover:scale-105 focus:ring-2 focus:ring-accent focus:ring-offset-2">Contact Us</a>
       </div>
     </div>
@@ -499,7 +499,7 @@
       <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
         <div>
           <div class="flex items-center space-x-3 mb-4">
-            <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/f1830279-f8af-4168-8512-eedac7dba10c.webp" alt="QuantumBank logo icon" class="h-8 w-8" loading="lazy">
+            
             <span class="text-xl font-bold text-white font-poppins">QuantumBank</span>
           </div>
           <p class="text-base text-gray-400 leading-relaxed">Reimagining banking for the digital age with cutting-edge technology and unparalleled customer service.</p>
@@ -509,7 +509,7 @@
           <ul class="space-y-2">
             <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Personal Banking</a></li>
             <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Business Banking</a></li>
-            <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Loans</a></li>
+            <li><a href="loan.php" class="text-base text-gray-400 hover:text-white transition">Loans</a></li>
             <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Credit Cards</a></li>
             <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Investments</a></li>
           </ul>
