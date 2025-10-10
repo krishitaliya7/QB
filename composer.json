@@ -1,0 +1,7 @@
+{
+  "name": "quantumbank/website",
+  "description": "QuantumBank demo app",
+  "require": {
+    "phpmailer/phpmailer": "^6.8"
+  }
+}

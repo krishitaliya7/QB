@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QuantumBank Payment Gateway</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  /* Custom scrollbar for better UX */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+  background: #0b74de;
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #f3f4f6;
+  }
+  .input-group > input:focus {
+  outline-color: #0b74de;
+    box-shadow: 0 0 8px rgba(124, 58, 237, 0.5);
+  }
+  .btn-primary:hover {
+    background-color: #6b21a8;
+  }
+  /* Credit card icons placeholders */
+  .credit-card-icon {
+    width: 40px;
+    height: 28px;
+  background: linear-gradient(45deg, #0b74de, #055aa8);
+    border-radius: 6px;
+    position: relative;
+  }
+  .credit-card-icon::before, .credit-card-icon::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+  }
+  .credit-card-icon::before {
+    width: 20px;
+    height: 20px;
+    background: #a78bfa;
+    left: 8px;
+    top: 4px;
+  }
+  .credit-card-icon::after {
+    width: 20px;
+    height: 20px;
+    background: #c4b5fd;
+    left: 20px;
+    top: 8px;
+  }
+</style>
+</head>
+<body class="bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 min-h-screen flex flex-col">
+
+  <header class="bg-blue-800 text-white p-5 flex justify-between items-center">
+    <div class="font-bold text-xl select-none">QuantumBank</div>
+    <nav class="space-x-6 text-sm md:text-base">
+      <a href="#" class="hover:underline focus:outline-none focus:ring-2 focus:ring-white rounded">Accounts</a>
+      <a href="#" class="hover:underline focus:outline-none focus:ring-2 focus:ring-white rounded">Payments</a>
+      <a href="#" class="hover:underline focus:outline-none focus:ring-2 focus:ring-white rounded">Cards</a>
+      <a href="#" class="hover:underline focus:outline-none focus:ring-2 focus:ring-white rounded">Invest</a>
+      <a href="#" class="hover:underline focus:outline-none focus:ring-2 focus:ring-white rounded">Login</a>
+    </nav>
+  </header>
+
+  <main role="main" class="flex-grow container mx-auto p-6">
+    <section class="max-w-3xl mx-auto rounded-lg bg-white p-8 shadow-lg" aria-labelledby="payment-form-title" >
+  <h1 id="payment-form-title" class="text-3xl font-extrabold text-blue-900 mb-4 select-none">Secure Payment Gateway</h1>
+  <p class="mb-6 text-blue-800 select-none">Make your payment with confidence — protected by military-grade encryption and real-time fraud detection.</p>
+      
+      <form id="paymentForm" novalidate class="space-y-6" autocomplete="on" aria-describedby="form-instructions">
+        <p id="form-instructions" class="sr-only">
+          Payment form. Required fields: Cardholder Name, Card Number, Expiry Date, CVV, Amount. Submit button disabled until valid.
+        </p>
+
+        <div class="input-group">
+          <label for="cardholderName" class="block font-semibold text-blue-900 mb-1">Cardholder Name</label>
+          <input
+            type="text"
+            id="cardholderName"
+            name="cardholderName"
+            class="w-full border rounded-md p-3 focus:ring-2 focus:ring-blue-500"
+            maxlength="50"
+            autocomplete="cc-name"
+            aria-required="true"
+            aria-invalid="false"
+            placeholder="Full Name as on Card"
+            required
+            pattern="^[a-zA-Z\s\-']+$"
+            title="Enter the full name as printed on your card"
+            />
+          <p class="mt-1 text-sm text-red-600 hidden" id="errorName">Please enter a valid name (letters, spaces, hyphens only).</p>
+        </div>
+
+        <div class="input-group">
+          <label for="cardNumber" class="block font-semibold text-blue-900 mb-1">Card Number</label>
+          <div class="flex items-center space-x-3">
+            <input
+              type="text"
+              id="cardNumber"
+              inputmode="numeric"
+              name="cardNumber"
+              class="flex-grow border rounded-md p-3 tracking-widest text-lg focus:ring-2 focus:ring-blue-500"
+              maxlength="19" 
+              autocomplete="cc-number" 
+              placeholder="xxxx xxxx xxxx xxxx"
+              aria-required="true"
+              aria-invalid="false"
+              required
+              pattern="^(\d{4}[\s-]?){3}\d{4}$"
+              />
+            <div aria-hidden="true" class="credit-card-icon"></div>
+          </div>
+          <p class="mt-1 text-sm text-red-600 hidden" id="errorNumber">Enter a valid 16-digit card number.</p>
+        </div>
+
+        <div class="flex space-x-4">
+          <div class="input-group flex-1">
+            <label for="expiry" class="block font-semibold text-blue-900 mb-1">Expiry Date (MM/YY)</label>
+            <input
+              type="text"
+              id="expiry"
+              name="expiry"
+              inputmode="numeric"
+              class="w-full border rounded-md p-3 text-center focus:ring-2 focus:ring-blue-500"
+              placeholder="MM/YY"
+              maxlength="5"
+              autocomplete="cc-exp"
+              aria-required="true"
+              aria-invalid="false"
+              required
+              pattern="^(0[1-9]|1[0-2])\/?([0-9]{2})$"
+              title="Expiry date in MM/YY format"
+              />
+            <p class="mt-1 text-sm text-red-600 hidden" id="errorExpiry">Enter a valid expiry date (MM/YY) not in the past.</p>
+          </div>
+
+          <div class="input-group flex-1">
+            <label for="cvv" class="block font-semibold text-blue-900 mb-1">CVV</label>
+            <input
+              type="password"
+              id="cvv"
+              name="cvv"
+              inputmode="numeric"
+              maxlength="4"
+              class="w-full border rounded-md p-3 text-center tracking-widest focus:ring-2 focus:ring-blue-500"
+              autocomplete="cc-csc"
+              placeholder="***"
+              aria-required="true"
+              aria-invalid="false"
+              required
+              pattern="^\d{3,4}$"
+              title="3 or 4 digit security code"
+              />
+            <p class="mt-1 text-sm text-red-600 hidden" id="errorCVV">Enter a valid 3 or 4 digit CVV.</p>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="amount" class="block font-semibold text-blue-900 mb-1">Amount (USD)</label>
+          <input
+            type="number"
+            id="amount"
+            name="amount"
+            min="1"
+            step="0.01"
+            class="w-full border rounded-md p-3 text-right focus:ring-2 focus:ring-blue-500"
+            aria-required="true"
+            aria-invalid="false"
+            required
+            placeholder="0.00"
+            title="Enter amount to pay in USD"
+            />
+          <p class="mt-1 text-sm text-red-600 hidden" id="errorAmount">Please enter a valid amount greater than 0.</p>
+        </div>
+
+        <button
+          type="submit"
+          id="submitBtn"
+          class="btn-primary w-full bg-blue-700 text-white font-bold py-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled
+          aria-disabled="true"
+        >
+          Pay Now
+        </button>
+
+      </form>
+
+      <div id="paymentStatus" role="alert" aria-live="polite" class="mt-6 text-center text-lg font-semibold"></div>
+    </section>
+  </main>
+
+  <footer class="text-center p-6 bg-blue-800 text-blue-100 select-none">
+    &copy; 2024 QuantumBank. All rights reserved.
+  </footer>
+
+<script>
+  (() => {
+    'use strict';
+
+    const form = document.getElementById('paymentForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusMsg = document.getElementById('paymentStatus');
+
+    // Input fields
+    const cardholderName = form.cardholderName;
+    const cardNumber = form.cardNumber;
+    const expiry = form.expiry;
+    const cvv = form.cvv;
+    const amount = form.amount;
+
+    // Error message elements
+    const errors = {
+      name: document.getElementById('errorName'),
+      number: document.getElementById('errorNumber'),
+      expiry: document.getElementById('errorExpiry'),
+      cvv: document.getElementById('errorCVV'),
+      amount: document.getElementById('errorAmount')
+    };
+
+    // Validation helpers
+    function validateName(value) {
+      return /^[a-zA-Z\s\-']+$/.test(value.trim());
+    }
+
+    function validateCardNumber(value) {
+      // Remove spaces or hyphens
+      const num = value.replace(/[\s-]/g, '');
+      if (!/^\d{16}$/.test(num)) return false;
+      // Luhn Algorithm for card validation
+      let sum = 0;
+      for (let i = 0; i < 16; i++) {
+        let intVal = parseInt(num.charAt(15 - i), 10);
+        if (i % 2 === 1) {
+          intVal *= 2;
+          if (intVal > 9) intVal -= 9;
+        }
+        sum += intVal;
+      }
+      return (sum % 10) === 0;
+    }
+
+    function validateExpiry(value) {
+      if(!/^(0[1-9]|1[0-2])\/?([0-9]{2})$/.test(value)) return false;
+      const parts = value.split('/');
+      const month = parseInt(parts[0], 10);
+      const year = 2000 + parseInt(parts[1], 10);
+
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+
+      if (year < currentYear) return false;
+      if (year === currentYear && month < currentMonth) return false;
+
+      return true;
+    }
+
+    function validateCVV(value) {
+      return /^\d{3,4}$/.test(value);
+    }
+
+    function validateAmount(value) {
+      const num = parseFloat(value);
+      return !isNaN(num) && num > 0;
+    }
+
+    function toggleError(field, show) {
+      if (show) {
+        errors[field].classList.remove('hidden');
+        errors[field].setAttribute('aria-hidden', 'false');
+        form[field === 'name' ? 'cardholderName' : field === 'number' ? 'cardNumber' : field].setAttribute('aria-invalid', 'true');
+      } else {
+        errors[field].classList.add('hidden');
+        errors[field].setAttribute('aria-hidden', 'true');
+        form[field === 'name' ? 'cardholderName' : field === 'number' ? 'cardNumber' : field].setAttribute('aria-invalid', 'false');
+      }
+    }
+
+    function validateForm() {
+      const nameValid = validateName(cardholderName.value);
+      const numberValid = validateCardNumber(cardNumber.value);
+      const expiryValid = validateExpiry(expiry.value);
+      const cvvValid = validateCVV(cvv.value);
+      const amountValid = validateAmount(amount.value);
+
+      toggleError('name', !nameValid);
+      toggleError('number', !numberValid);
+      toggleError('expiry', !expiryValid);
+      toggleError('cvv', !cvvValid);
+      toggleError('amount', !amountValid);
+
+      return nameValid && numberValid && expiryValid && cvvValid && amountValid;
+    }
+
+    function formatCardNumber(value) {
+      return value
+        .replace(/\D/g, '')
+        .replace(/(.{4})/g, '$1 ')
+        .trim();
+    }
+
+    function formatExpiry(value) {
+      let input = value.replace(/\D/g, '').substring(0,4);
+      if(input.length >= 3) {
+        return input.substring(0,2) + '/' + input.substring(2,4);
+      } else if(input.length >= 2) {
+        return input.substring(0,2);
+      }
+      return input;
+    }
+
+    // Event listeners for formatting and validation
+    cardNumber.addEventListener('input', (e) => {
+      e.target.value = formatCardNumber(e.target.value);
+      validateForm();
+      toggleSubmit();
+    });
+
+    expiry.addEventListener('input', (e) => {
+      e.target.value = formatExpiry(e.target.value);
+      validateForm();
+      toggleSubmit();
+    });
+
+    [cardholderName, cvv, amount].forEach((input) => {
+      input.addEventListener('input', () => {
+        validateForm();
+        toggleSubmit();
+      });
+    });
+
+    function toggleSubmit() {
+      if(validateForm()) {
+        submitBtn.disabled = false;
+        submitBtn.setAttribute('aria-disabled', 'false');
+      } else {
+        submitBtn.disabled = true;
+        submitBtn.setAttribute('aria-disabled', 'true');
+      }
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Processing...";
+      statusMsg.textContent = "";
+      try {
+        // Simulate encryption using subtle crypto API for card number and CVV before sending (mock)
+        if(window.crypto && window.crypto.subtle){
+          // actual encryption would require a backend public key, here just fake a delay to simulate
+          await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(cardNumber.value + cvv.value));
+        }
+
+        // Simulate payment processing delay
+        await new Promise(resolve => setTimeout(resolve, 1800));
+
+        // Success feedback
+        statusMsg.className = "mt-6 text-center text-lg font-semibold text-green-700";
+        statusMsg.textContent = "Payment successful! Thank you for trusting QuantumBank.";
+        form.reset();
+        submitBtn.textContent = "Pay Now";
+        submitBtn.disabled = true;
+        submitBtn.setAttribute('aria-disabled', 'true');
+      } catch (err) {
+        statusMsg.className = "mt-6 text-center text-lg font-semibold text-red-700";
+        statusMsg.textContent = "Payment failed. Please try again or contact support.";
+        submitBtn.textContent = "Pay Now";
+        submitBtn.disabled = false;
+        submitBtn.setAttribute('aria-disabled', 'false');
+      }
+    });
+
+  })();
+</script>
+
+</body>
+</html>
+
