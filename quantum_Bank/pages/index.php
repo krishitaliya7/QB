@@ -108,7 +108,7 @@
         <a href="#" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Investments">Investments</a>
         <a href="#" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Calculators">Calculators</a>
         <a href="atmLocator.php" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="ATM Locator">ATM Locator</a>
-        <a href="Login_new.php" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Login">Login</a>
+        <a href="login.php" class="hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Login">Login</a>
         <div id="userNav" class="hidden flex items-center space-x-2">
           <span class="text-white">Welcome, <span id="userName"></span>!</span>
           <button id="logoutBtn" class="px-4 py-2 bg-error text-white rounded-lg font-medium hover:bg-opacity-90 transition focus:ring-2 focus:ring-error focus:ring-offset-2">Logout</button>
@@ -128,7 +128,7 @@
       <a href="#" class="text-lg hover:underline">Investments</a>
       <a href="#" class="text-lg hover:underline">Calculators</a>
       <a href="atmLocator.php" class="text-lg hover:underline">ATM Locator</a>
-      <a href="Login_new.php" class="text-lg hover:underline">Login</a>
+      <a href="login.php" class="text-lg hover:underline">Login</a>
       <button id="closeMobileMenu" class="absolute top-4 right-4 text-gray-800 text-2xl">&times;</button>
     </div>
   </nav>
@@ -141,7 +141,7 @@
         <p class="text-base md:text-lg leading-relaxed mb-8 text-blue-100">Smart financial solutions powered by AI with military-grade security</p>
         <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 justify-center md:justify-start">
           <a href="open_account.php" class="px-6 py-3 bg-accent text-white rounded-lg font-medium hover:bg-opacity-90 transition transform hover:scale-105 focus:ring-2 focus:ring-accent focus:ring-offset-2">Open Account</a>
-          <a href="Login.html" class="px-6 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-accent transition transform hover:scale-105 focus:ring-2 focus:ring-accent focus:ring-offset-2">Login to Account</a>
+          <a href="login.php" class="px-6 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-accent transition transform hover:scale-105 focus:ring-2 focus:ring-accent focus:ring-offset-2">Login to Account</a>
         </div>
       </div>
       <div class="md:w-1/2 flex justify-center p-4">
