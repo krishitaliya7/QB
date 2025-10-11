@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Open Account - QuantumBank</title>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -55,7 +56,7 @@
   <section id="accountForm" class="max-w-lg mx-auto bg-white shadow-xl rounded-2xl p-8 mb-12">
     <h2 class="text-2xl font-semibold text-indigo-700 mb-6 text-center">Account Opening Form</h2>
     
-    <form action="register.php" method="POST" class="space-y-4" onsubmit="return handleSubmit(event)">
+    <form action="register.php" method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="return handleSubmit(event)">
       <div>
         <input type="text" name="fullName" id="fullName" placeholder="Full Name" required 
           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
@@ -88,19 +89,25 @@
       </div>
 
       <div>
-        <input type="tel" name="phone" id="phone" placeholder="Phone (e.g., 123-456-7890)" pattern="[0-9]{3}-[0-9]{3}-[0-9]{4}" required 
+        <input type="tel" name="phone" id="phone" placeholder="Phone (e.g., 123-456-7890)" pattern="[0-9]{3}-[0-9]{3}-[0-9]{4}" required
           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
         <p class="text-red-500 text-sm hidden" id="phoneError">Please enter a valid phone number.</p>
       </div>
 
+      <div>
+        <input type="password" name="pin" id="pin" placeholder="4-digit PIN" pattern="[0-9]{4}" maxlength="4" required
+          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
+        <p class="text-red-500 text-sm hidden" id="pinError">PIN must be exactly 4 digits.</p>
+      </div>
+
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <input type="date" name="dob" id="dob" required 
+          <input type="date" name="dob" id="dob" required
             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
           <p class="text-red-500 text-sm hidden" id="dobError">Date of Birth is required.</p>
         </div>
         <div>
-          <select name="accountType" id="accountType" required 
+          <select name="accountType" id="accountType" required
             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
             <option value="">Select Account Type</option>
             <option value="savings">Savings Account</option>
@@ -109,6 +116,22 @@
           </select>
           <p class="text-red-500 text-sm hidden" id="accountTypeError">Please select an account type.</p>
         </div>
+      </div>
+
+      <div>
+        <select name="documentType" id="documentType" required
+          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+          <option value="">Select Document Type</option>
+          <option value="aadhaar">Aadhaar</option>
+          <option value="pan">PAN</option>
+        </select>
+        <p class="text-red-500 text-sm hidden" id="documentTypeError">Please select document type.</p>
+      </div>
+
+      <div>
+        <input type="file" name="documentFile" id="documentFile" accept=".pdf,.jpg,.jpeg" required
+          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
+        <p class="text-red-500 text-sm hidden" id="documentFileError">Please upload a valid document (PDF or JPG, max 5MB).</p>
       </div>
 
       <button type="submit" 
@@ -124,47 +147,67 @@
   </footer>
 
   <!-- JS VALIDATION -->
-  <script>
-    function handleSubmit(event) {
-      event.preventDefault();
+ <script>
+function handleSubmit(event) {
+  event.preventDefault();
 
-      const form = event.target;
-      const inputs = ['fullName', 'email', 'password', 'confirmPassword', 'address', 'phone', 'dob', 'accountType'];
-      let isValid = true;
+  const form = event.target;
+  let isValid = true;
 
-      function showError(id, message) {
-        const error = document.getElementById(id + 'Error');
-        error.textContent = message;
-        error.classList.remove('hidden');
-        isValid = false;
-      }
+  const fullName = form.fullName.value.trim();
+  const email = form.email.value.trim();
+  const password = form.password.value;
+  const confirmPassword = form.confirmPassword.value;
+  const address = form.address.value.trim();
+  const phone = form.phone.value.trim();
+  const pin = form.pin.value;
+  const dob = form.dob.value;
+  const accountType = form.accountType.value;
+  const documentType = form.documentType.value;
+  const documentFile = form.documentFile.files[0];
 
-      function hideError(id) {
-        document.getElementById(id + 'Error').classList.add('hidden');
-      }
+  function showError(id, message) {
+    const error = document.getElementById(id + 'Error');
+    error.textContent = message;
+    error.classList.remove('hidden');
+    isValid = false;
+  }
 
-      const fullName = form.fullName.value.trim();
-      const email = form.email.value.trim();
-      const password = form.password.value;
-      const confirmPassword = form.confirmPassword.value;
-      const phone = form.phone.value;
-      const dob = form.dob.value;
-      const accountType = form.accountType.value;
+  function hideError(id) {
+    document.getElementById(id + 'Error').classList.add('hidden');
+  }
 
-      if (!fullName) showError('fullName', 'Full Name is required.'); else hideError('fullName');
-      if (!email.includes('@')) showError('email', 'Please enter a valid email.'); else hideError('email');
-      if (password.length < 6) showError('password', 'Password must be at least 6 characters.'); else hideError('password');
-      if (confirmPassword !== password) showError('confirmPassword', 'Passwords do not match.'); else hideError('confirmPassword');
-      if (!phone.match(/^[0-9]{3}-[0-9]{3}-[0-9]{4}$/)) showError('phone', 'Phone must match 123-456-7890.'); else hideError('phone');
-      if (!dob) showError('dob', 'Please enter your date of birth.'); else hideError('dob');
-      if (!accountType) showError('accountType', 'Please select account type.'); else hideError('accountType');
+  if (!fullName) showError('fullName', 'Full Name is required.'); else hideError('fullName');
+  if (!email.includes('@')) showError('email', 'Please enter a valid email.'); else hideError('email');
+  if (password.length < 6) showError('password', 'Password must be at least 6 characters.'); else hideError('password');
+  if (confirmPassword !== password) showError('confirmPassword', 'Passwords do not match.'); else hideError('confirmPassword');
+  if (!address) showError('address', 'Address is required.'); else hideError('address');
+  if (!phone.match(/^[0-9]{3}-[0-9]{3}-[0-9]{4}$/)) showError('phone', 'Phone must match 123-456-7890.'); else hideError('phone');
+  if (!pin.match(/^\d{4}$/)) showError('pin', 'PIN must be exactly 4 digits.'); else hideError('pin');
+  if (!dob) showError('dob', 'Please enter your date of birth.'); else hideError('dob');
+  if (!accountType) showError('accountType', 'Please select account type.'); else hideError('accountType');
+  if (!documentType) showError('documentType', 'Please select document type.'); else hideError('documentType');
+  if (!documentFile) showError('documentFile', 'Please upload a document.'); else if (!['application/pdf', 'image/jpeg', 'image/jpg'].includes(documentFile.type) || documentFile.size > 5 * 1024 * 1024) showError('documentFile', 'File must be PDF or JPG, max 5MB.'); else hideError('documentFile');
 
-      if (isValid) {
-        alert('Application submitted successfully!');
-        form.reset();
-      }
-    }
-  </script>
+  if (isValid) {
+    const formData = new FormData(form);
+    fetch('register.php', {
+      method: 'POST',
+      body: formData
+    })
+    .then(async (response) => {
+      const data = await response.json();
+      alert(data.message || 'Account creation response received!');
+      if (response.ok) form.reset();
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('An error occurred. Please try again.');
+    });
+  }
+}
+</script>
+
 
 </body>
 </html>

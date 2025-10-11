@@ -26,17 +26,15 @@ $user = getenv('QB_DB_USER') ?: 'root';
 $pass = getenv('QB_DB_PASS') ?: '';
 $port = getenv('QB_DB_PORT') ?: 3306;
 
-try {
-    $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=utf8mb4";
-    $pdo = new PDO($dsn, $user, $pass, array(
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false
-    ));
-} catch (PDOException $e) {
-    $msg = "Database connection failed: " . $e->getMessage() . "\n" .
+$conn = new mysqli($host, $user, $pass, $db, $port);
+
+if ($conn->connect_error) {
+    $msg = "Database connection failed: " . $conn->connect_error . "\n" .
         "Check quantum_Bank/.env or environment variables and ensure MySQL is running.";
     die(nl2br(htmlspecialchars($msg)));
 }
+
+// Set charset to utf8mb4 for consistency
+$conn->set_charset("utf8mb4");
 
 ?>

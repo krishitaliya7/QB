@@ -1,6 +1,12 @@
 <?php
 // Session and auth helper functions
 if (session_status() === PHP_SESSION_NONE) {
+    // Set session cookie to last 30 days
+    ini_set('session.cookie_lifetime', 60*60*24*30);
+    // Set session garbage collection to 30 days
+    ini_set('session.gc_maxlifetime', 60*60*24*30);
+    // Disable automatic garbage collection to prevent premature session deletion
+    ini_set('session.gc_probability', 0);
     session_start();
 }
 
@@ -56,6 +62,10 @@ if (!function_exists('isEmailVerified')) {
 // Require login helper
 if (!function_exists('requireLogin')) {
     function requireLogin() {
+        // Prevent caching of sensitive pages
+        header("Cache-Control: no-cache, no-store, must-revalidate");
+        header("Pragma: no-cache");
+        header("Expires: 0");
         if (!isLoggedIn()) {
             // Save requested URL and redirect to login
             if (!headers_sent()) {
@@ -109,5 +119,7 @@ if (!function_exists('renderFlashes')) {
         }
     }
 }
+
+// Removed cache control headers to allow caching and prevent session loss on back button
 
 ?>

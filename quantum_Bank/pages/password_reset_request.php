@@ -4,6 +4,21 @@ include '../includes/session.php';
 include '../includes/send_mail.php';
 include '../includes/audit.php';
 
+// ... (database connection established) ...
+
+// Check if email exists
+$stmt = $conn->prepare("SELECT id, full_name FROM users WHERE email = ?");
+$stmt->bind_param("s", $email);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result->num_rows === 1) {
+    $user = $result->fetch_assoc();
+    $user_id = $user['id'];
+    // Now proceed to insert a reset token
+}
+$stmt->close();
+
 $page_css = 'login.css';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

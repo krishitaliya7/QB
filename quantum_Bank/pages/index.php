@@ -1,3 +1,6 @@
+<?php
+include '../includes/session.php';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -124,7 +127,7 @@
       <a href="Dashboard.html" class="text-lg hover:underline">Dashboard</a>
       <a href="#" class="text-lg hover:underline">Accounts</a>
       <a href="Payments.php" class="text-lg hover:underline">Payments</a>
-      <a href="Cards.php" class="text-lg hover:underline">Cards</a>
+      <a href="cards.php" class="text-lg hover:underline">Cards</a>
       <a href="#" class="text-lg hover:underline">Investments</a>
       <a href="#" class="text-lg hover:underline">Calculators</a>
       <a href="atmLocator.php" class="text-lg hover:underline">ATM Locator</a>
@@ -649,21 +652,6 @@
       alert(message); // Replace with a proper notification system in production
     }
 
-    function simulateLogin() {
-      const isLoggedIn = localStorage.getItem('isLoggedIn');
-      if (isLoggedIn === 'true') {
-        document.getElementById('heroSection').classList.add('hidden');
-        document.getElementById('dashboardSection')?.classList.remove('hidden');
-        document.getElementById('userNav').classList.remove('hidden');
-        document.getElementById('userName').textContent = bankData.currentUser.name;
-        document.getElementById('dashboardUserName')?.textContent = bankData.currentUser.name;
-        populateDashboard();
-      } else {
-        document.getElementById('heroSection').classList.remove('hidden');
-        document.getElementById('dashboardSection')?.classList.add('hidden');
-        document.getElementById('userNav').classList.add('hidden');
-      }
-    }
 
     function populateDashboard() {
       const accountsContainer = document.getElementById('accountsContainer');
@@ -842,14 +830,35 @@
 
     // Logout handler
     document.getElementById('logoutBtn').addEventListener('click', function() {
-      localStorage.setItem('isLoggedIn', 'false');
-      simulateLogin();
+      window.location.href = 'logout.php';
     });
 
-    // Simulate login on page load
+    // Check session on page load
     document.addEventListener('DOMContentLoaded', () => {
-      localStorage.setItem('isLoggedIn', 'true');
-      simulateLogin();
+      fetch('../includes/check_session.php')
+        .then(response => response.json())
+        .then(data => {
+          if (data.logged_in) {
+            document.getElementById('userNav').classList.remove('hidden');
+            document.getElementById('userName').textContent = data.username;
+            // Hide login link if needed
+            const loginLink = document.querySelector('a[href="login.php"]');
+            if (loginLink) {
+              loginLink.style.display = 'none';
+            }
+          } else {
+            document.getElementById('userNav').classList.add('hidden');
+            const loginLink = document.querySelector('a[href="login.php"]');
+            if (loginLink) {
+              loginLink.style.display = 'inline';
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Error checking session:', error);
+          // Default to logged out
+          document.getElementById('userNav').classList.add('hidden');
+        });
     });
   </script>
 </body>

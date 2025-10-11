@@ -4,6 +4,32 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>QuantumBank Dashboard</title>
+
+<?php
+include '../includes/session.php';
+include '../includes/db_connect.php';
+
+requireLogin();
+
+$user_id = getUserId();
+$username = getUsername();
+
+// Fetch user's accounts
+$stmt = $conn->prepare("SELECT account_type, account_number, balance FROM accounts WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$accounts = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+// Fetch recent transactions
+$stmt = $conn->prepare("SELECT DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') as date_formatted, description, amount, status FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 5");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$recent_transactions = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+?>
+
+    
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js for spending analytics chart -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -11,6 +37,7 @@
     /* Custom Tailwind extensions or overrides */
     body {
       font-family: 'Inter', sans-serif;
+      scroll-behavior: smooth;
     }
     .gradient-bg {
       background: linear-gradient(135deg, #1e3a8a, #3b82f6);
@@ -51,9 +78,11 @@
       <nav class="hidden md:flex space-x-6">
         <a href="#" class="hover:underline">Dashboard</a>
         <a href="#" class="hover:underline">Accounts</a>
+        <a href="cards.php" class="hover:underline">Cards</a>
         <a href="#" class="hover:underline">Transactions</a>
         <a href="#" class="hover:underline">Loans</a>
         <a href="#" class="hover:underline">Settings</a>
+        <a href="logout.php" class="hover:underline">Logout</a>
       </nav>
       <button class="md:hidden text-white focus:outline-none">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -66,7 +95,7 @@
   <!-- Main Content -->
   <main class="container mx-auto px-4 py-8 md:py-12">
     <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6 md:mb-8">
-      Welcome back, <span id="dashboardUsername">Krish</span>!
+      Welcome back, <?php echo htmlspecialchars($username); ?>!
     </h2>
     
     <div class="mb-8 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
@@ -85,7 +114,7 @@
         </section>
 
         <!-- Recent Transactions -->
-        <section>
+        <section id="recent-transactions">
           <h3 class="text-xl md:text-2xl font-bold text-gray-800 mb-4">Recent Transactions</h3>
           <div class="bg-white shadow-md rounded-xl overflow-hidden">
             <div class="overflow-x-auto">
@@ -142,19 +171,19 @@
         <section class="bg-white p-4 md:p-6 rounded-xl shadow-md">
           <h3 class="text-lg md:text-xl font-bold text-gray-800 mb-4">Quick Actions</h3>
           <div class="grid grid-cols-1 gap-4">
-            <button id="transferBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center">
-              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <a href="transfer.php" class="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center inline-block text-center">
+              <svg class="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
               </svg>
               Make a Transfer
-            </button>
+            </a>
             <button class="w-full bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center">
               <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
               </svg>
               Pay Bills
             </button>
-            <button class="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center">
+            <button onclick="window.location.href='cards.php'" class="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center">
               <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
               </svg>
@@ -172,50 +201,13 @@
     </div>
   </main>
 
-  <!-- Modal Example (for interactive components) -->
-  <div id="transferModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden">
-    <div class="bg-white p-6 rounded-xl max-w-md w-full">
-      <h3 class="text-xl font-bold mb-4">Make a Transfer</h3>
-      <form>
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700">From Account</label>
-          <select class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-            <option>Premium Checking</option>
-            <option>High-Yield Savings</option>
-          </select>
-        </div>
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700">To Account</label>
-          <input type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" placeholder="Account Number">
-        </div>
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700">Amount</label>
-          <input type="number" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" placeholder="$0.00">
-        </div>
-        <div class="flex justify-end space-x-2">
-          <button type="button" id="closeModal" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md">Transfer</button>
-        </div>
-      </form>
-    </div>
-  </div>
+
 
   <script>
-    // Sample Data
-    const username = 'Krish';
-    const accounts = [
-      { type: 'Premium Checking', number: '•••• 5678', balance: 8450.23 },
-      { type: 'High-Yield Savings', number: '•••• 9012', balance: 32500.00 },
-      { type: 'Business Checking', number: '•••• 3456', balance: 15200.50 }
-    ];
+    // Data from PHP
+    const accounts = <?php echo json_encode($accounts); ?>;
 
-    const transactions = [
-      { date: '2023-06-15', description: 'Grocery Store', amount: -87.34, status: 'Completed' },
-      { date: '2023-06-14', description: 'Salary Deposit', amount: 4200.00, status: 'Completed' },
-      { date: '2023-06-12', description: 'Electric Bill', amount: -145.67, status: 'Completed' },
-      { date: '2023-06-11', description: 'Online Shopping', amount: -230.10, status: 'Completed' },
-      { date: '2023-06-10', description: 'Restaurant', amount: -55.00, status: 'Completed' }
-    ];
+    const transactions = <?php echo json_encode($recent_transactions); ?>;
 
     const loans = [
       { type: 'Personal Loan', amount: 10000, interest: 5.5, term: 36, status: 'Approved' },
@@ -226,8 +218,7 @@
     // Calculate total balance
     const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
 
-    // Populate Username and Total Balance
-    document.getElementById('dashboardUsername').textContent = username;
+    // Populate Total Balance
     document.getElementById('currentBalance').textContent = `$${totalBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 
     // Populate Accounts
@@ -238,8 +229,8 @@
       accountCard.innerHTML = `
         <div class="flex justify-between items-start mb-4">
           <div>
-            <h4 class="text-lg font-semibold text-gray-800">${account.type}</h4>
-            <p class="text-gray-500 mb-2">${account.number}</p>
+            <h4 class="text-lg font-semibold text-gray-800">${account.account_type}</h4>
+            <p class="text-gray-500 mb-2">${account.account_number}</p>
           </div>
           <div class="bg-blue-100 p-2 rounded-lg">
             <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -247,7 +238,7 @@
             </svg>
           </div>
         </div>
-        <p class="text-3xl font-bold text-gray-900">$${account.balance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+        <p class="text-3xl font-bold text-gray-900">$${parseFloat(account.balance).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
         <p class="text-gray-500">Available balance</p>
         <div class="flex justify-between mt-4">
           <button class="text-blue-600 hover:underline text-sm">Details</button>
@@ -257,18 +248,20 @@
       accountsContainer.appendChild(accountCard);
     });
 
+
+
     // Populate Transactions
     const transactionsTable = document.getElementById('transactionsTable');
     transactions.forEach(tx => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">${tx.date}</td>
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">${tx.date_formatted}</td>
         <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">${tx.description}</td>
-        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}">
-          ${tx.amount >= 0 ? '+' : ''}$${Math.abs(tx.amount).toFixed(2)}
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm ${parseFloat(tx.amount) >= 0 ? 'text-green-600' : 'text-red-600'}">
+          ${parseFloat(tx.amount) >= 0 ? '+' : ''}$${Math.abs(parseFloat(tx.amount)).toFixed(2)}
         </td>
         <td class="px-4 md:px-6 py-4 whitespace-nowrap">
-          <span class="inline-block px-2 py-1 text-xs font-medium rounded-full ${tx.status === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">${tx.status}</span>
+          <span class="inline-block px-2 py-1 text-xs font-medium rounded-full ${(tx.status === 'Completed' || tx.status === 'Successful') ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">${tx.status}</span>
         </td>
       `;
       transactionsTable.appendChild(tr);
@@ -347,26 +340,9 @@
       }
     });
 
-    // Interactive Modal for Transfer
-    const transferBtn = document.getElementById('transferBtn');
-    const transferModal = document.getElementById('transferModal');
-    const closeModal = document.getElementById('closeModal');
 
-    transferBtn.addEventListener('click', () => {
-      transferModal.classList.remove('hidden');
-    });
-
-    closeModal.addEventListener('click', () => {
-      transferModal.classList.add('hidden');
-    });
-
-    // Prevent form submission for demo
-    transferModal.querySelector('form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      alert('Transfer processed successfully!');
-      transferModal.classList.add('hidden');
-    });
   </script>
 
 </body>
 </html>
+
