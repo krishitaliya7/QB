@@ -27,20 +27,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($csrf)) {
         $error = 'Invalid CSRF token.';
     } else {
-        $stmt = $pdo->prepare('SELECT id, username FROM users WHERE email = ?');
-        $stmt->execute([$email]);
-        $user = $stmt->fetch();
+        $stmt = $conn->prepare('SELECT id, username FROM users WHERE email = ?');
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $user = $result->fetch_assoc();
         if ($user) {
             $token = bin2hex(random_bytes(32));
             $expires = date('Y-m-d H:i:s', time() + 3600); // 1 hour
-            $stmt = $pdo->prepare('INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)');
-            $stmt->execute([$user['id'], $token, $expires]);
+            $stmt = $conn->prepare('INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)');
+            $stmt->bind_param("iss", $user['id'], $token, $expires);
+            $stmt->execute();
+            $token_id = $conn->insert_id;
             $link = "http://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . "/password_reset.php?token=$token";
             include '../includes/email_helpers.php';
             $html = render_email_template(__DIR__ . '/../includes/email_templates/password_reset.php', ['username' => $user['username'], 'link' => $link]);
             $msg = "Password reset link: $link";
             send_mail($email, 'Password reset', $msg, '', $html);
-            audit_log($pdo, 'password.reset.request', $user['id'], ['token_id' => $pdo->lastInsertId()]);
+            audit_log($conn, 'password.reset.request', $user['id'], ['token_id' => $token_id]);
         }
         // Always show success message to avoid leaking which emails exist
         $success = 'If that email exists in our system, a password reset link has been sent.';

@@ -14,15 +14,20 @@ $q = trim($_GET['q'] ?? '');
 $export = isset($_GET['export']);
 
 $params = [];
+$types = '';
 $sql = 'SELECT a.*, u.email as user_email FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id';
 if ($q !== '') {
     $sql .= ' WHERE a.action LIKE ? OR u.email LIKE ?';
     $params[] = "%$q%"; $params[] = "%$q%";
+    $types .= 'ss';
 }
 $sql .= ' ORDER BY a.created_at DESC LIMIT 1000';
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$rows = $stmt->fetchAll();
+$stmt = $conn->prepare($sql);
+if (!empty($params)) {
+    $stmt->bind_param($types, ...$params);
+}
+$stmt->execute();
+$rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 if ($export) {
     header('Content-Type: text/csv');

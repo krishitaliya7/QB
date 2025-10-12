@@ -16,20 +16,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Create a new verification token
         $token = bin2hex(random_bytes(32));
         $expires = date('Y-m-d H:i:s', time() + 86400);
-        $stmt = $pdo->prepare('INSERT INTO email_verifications (user_id, token, expires_at) VALUES (?, ?, ?)');
-        $stmt->execute([$user_id, $token, $expires]);
+        $stmt = $conn->prepare('INSERT INTO email_verifications (user_id, token, expires_at) VALUES (?, ?, ?)');
+        $stmt->bind_param("iss", $user_id, $token, $expires);
+        $stmt->execute();
         $link = "http://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . "/verify_email.php?token=$token";
         // send
-        $stmt = $pdo->prepare('SELECT email, username FROM users WHERE id = ? LIMIT 1');
-        $stmt->execute([$user_id]);
-        $r = $stmt->fetch();
+        $stmt = $conn->prepare('SELECT email, username FROM users WHERE id = ? LIMIT 1');
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $r = $result->fetch_assoc();
         if ($r) {
             include '../includes/email_helpers.php';
             $html = render_email_template(__DIR__ . '/../includes/email_templates/verify_email.php', ['username' => $r['username'], 'link' => $link]);
             $text = "Verify: $link";
             send_mail($r['email'], 'Verify your email', $text, '', $html);
+            add_message($user_id, 'email_verification', 'Verification email sent to your email address.');
         }
-    audit_log($pdo, 'email.verification.sent', $user_id, ['token' => $token]);
+    audit_log($conn, 'email.verification.sent', $user_id, ['token' => $token]);
         $success = 'Verification email sent. Check your inbox.';
     }
 }

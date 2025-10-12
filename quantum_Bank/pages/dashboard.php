@@ -13,6 +13,7 @@ requireLogin();
 
 $user_id = getUserId();
 $username = getUsername();
+$unread_count = get_unread_messages_count($user_id);
 
 // Fetch user's accounts
 $stmt = $conn->prepare("SELECT account_type, account_number, balance FROM accounts WHERE user_id = ?");
@@ -33,6 +34,9 @@ $stmt->close();
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js for spending analytics chart -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Bootstrap for dropdown -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <style>
     /* Custom Tailwind extensions or overrides */
     body {
@@ -75,14 +79,17 @@ $stmt->close();
   <header class="gradient-bg text-white p-6">
     <div class="container mx-auto px-4 flex justify-between items-center">
       <h1 class="text-2xl md:text-3xl font-bold">QuantumBank</h1>
-      <nav class="hidden md:flex space-x-6">
-        <a href="#" class="hover:underline">Dashboard</a>
-        <a href="#" class="hover:underline">Accounts</a>
-        <a href="cards.php" class="hover:underline">Cards</a>
-        <a href="#" class="hover:underline">Transactions</a>
-        <a href="#" class="hover:underline">Loans</a>
-        <a href="#" class="hover:underline">Settings</a>
-        <a href="logout.php" class="hover:underline">Logout</a>
+      <nav class="hidden md:flex">
+        <ul class="flex space-x-6">
+          <li><a href="#" class="hover:underline">Dashboard</a></li>
+          <li><a href="#" class="hover:underline">Accounts</a></li>
+          <li><a href="cards.php" class="hover:underline">Cards</a></li>
+          <li><a href="#" class="hover:underline">Transactions</a></li>
+          <li><a href="loan.php" class="hover:underline">Loans</a></li>
+          <li><a href="#" class="hover:underline">Settings</a></li>
+          <li><a href="#" class="hover:underline" data-bs-toggle="modal" data-bs-target="#messagesModal">Messages <?php if ($unread_count > 0) echo "<span class=\"badge bg-danger\">$unread_count</span>"; ?></a></li>
+          <li><a href="logout.php" class="hover:underline">Logout</a></li>
+        </ul>
       </nav>
       <button class="md:hidden text-white focus:outline-none">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -189,7 +196,7 @@ $stmt->close();
               </svg>
               Manage Cards
             </button>
-            <button class="w-full bg-orange-600 text-white py-3 rounded-lg font-medium hover:bg-orange-700 transition flex items-center justify-center">
+            <button onclick="window.location.href='loan.php'" class="w-full bg-orange-600 text-white py-3 rounded-lg font-medium hover:bg-orange-700 transition flex items-center justify-center">
               <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
@@ -204,6 +211,16 @@ $stmt->close();
 
 
   <script>
+    function markRead(messageId) {
+      fetch('mark_read.php?message_id=' + messageId, { method: 'GET' })
+        .then(response => response.text())
+        .then(data => {
+          if (data === 'success') {
+            location.reload();
+          }
+        });
+    }
+
     // Data from PHP
     const accounts = <?php echo json_encode($accounts); ?>;
 
@@ -342,6 +359,43 @@ $stmt->close();
 
 
   </script>
+
+<!-- Messages Modal -->
+<div class="modal fade" id="messagesModal" tabindex="-1" aria-labelledby="messagesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="messagesModalLabel">Notifications</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <?php $messages = get_messages($user_id, 50); ?>
+                <?php if (empty($messages)): ?>
+                    <p>No notifications.</p>
+                <?php else: ?>
+                    <div class="list-group">
+                        <?php foreach ($messages as $msg): ?>
+                            <div class="list-group-item <?php echo $msg['read_status'] ? '' : 'list-group-item-warning'; ?>">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1"><?php echo htmlspecialchars($msg['type']); ?></h5>
+                                    <small><?php echo htmlspecialchars($msg['created_at']); ?></small>
+                                </div>
+                                <p class="mb-1"><?php echo htmlspecialchars($msg['message']); ?></p>
+                                <?php if (!$msg['read_status']): ?>
+                                    <button class="btn btn-sm btn-primary" onclick="markRead(<?php echo $msg['id']; ?>)">Mark as Read</button>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="messages.php" class="btn btn-primary">View All</a>
+            </div>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>

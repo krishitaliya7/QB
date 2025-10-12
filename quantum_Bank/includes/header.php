@@ -12,6 +12,20 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/QB/css/index.css">
     <link rel="stylesheet" href="/QB/css/style.css">
+    <!-- Bootstrap JS for dropdowns -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function markRead(messageId) {
+            fetch('pages/mark_read.php?message_id=' + messageId, { method: 'GET' })
+                .then(response => response.text())
+                .then(data => {
+                    if (data === 'success') {
+                        // Optionally update the UI without reload
+                        location.reload();
+                    }
+                });
+        }
+    </script>
     <style>
         /* Small page-specific overrides to ensure pixel matching */
         body { font-family: 'Inter', sans-serif; }
@@ -19,7 +33,8 @@
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
+        <div 
+        >
             <a class="navbar-brand" href="index.php">QuantumBank</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -35,6 +50,7 @@
                     <li class="nav-item"><a class="nav-link" href="atm_locator.php">ATM Locator</a></li>
                     <li class="nav-item"><a class="nav-link" href="about.php">About</a></li>
                     <?php if (isLoggedIn()): ?>
+                        <li class="nav-item"><a class="nav-link" href="messages.php">Messages <span class="badge bg-danger" id="unreadCount"><?php echo get_unread_messages_count(getUserId()); ?></span></a></li>
                         <li class="nav-item"><a class="nav-link" href="dashboard.php">Hello, <?php echo getUsername(); ?></a></li>
                         <li class="nav-item"><a class="nav-link" href="logout.php">Logout</a></li>
                     <?php else: ?>
@@ -50,10 +66,12 @@
             // check verification quickly
             $verified = false;
             try {
-                if (isset($pdo)) {
-                    $stmt = $pdo->prepare('SELECT verified FROM users WHERE id = ? LIMIT 1');
-                    $stmt->execute([getUserId()]);
-                    $r = $stmt->fetch();
+                if (isset($conn)) {
+                    $user_id = getUserId();
+                    $stmt = $conn->prepare('SELECT verified FROM users WHERE id = ? LIMIT 1');
+                    $stmt->bind_param("i", $user_id);
+                    $stmt->execute();
+                    $r = $stmt->get_result()->fetch_assoc();
                     $verified = $r && $r['verified'];
                 }
             } catch (Exception $e) { }
@@ -66,3 +84,5 @@
                     </form>
                 </div>
         <?php endif; endif; ?>
+
+

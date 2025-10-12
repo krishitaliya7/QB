@@ -11,25 +11,29 @@ if (!$token) {
     exit;
 }
 
-$stmt = $pdo->prepare('SELECT id, user_id, expires_at, verified FROM email_verifications WHERE token = ? LIMIT 1');
-$stmt->execute([$token]);
-$row = $stmt->fetch();
+$stmt = $conn->prepare('SELECT id, user_id, expires_at, verified FROM email_verifications WHERE token = ? LIMIT 1');
+$stmt->bind_param("s", $token);
+$stmt->execute();
+$result = $stmt->get_result();
+$row = $result->fetch_assoc();
 if (!$row) {
     $error = 'Invalid verification token.';
 } elseif ($row['verified'] || strtotime($row['expires_at']) < time()) {
     $error = 'Token expired or already verified.';
 } else {
     try {
-        $pdo->beginTransaction();
-        $stmt = $pdo->prepare('UPDATE users SET verified = 1 WHERE id = ?');
-        $stmt->execute([$row['user_id']]);
-        $stmt = $pdo->prepare('UPDATE email_verifications SET verified = 1 WHERE id = ?');
-        $stmt->execute([$row['id']]);
-        $pdo->commit();
+        $conn->begin_transaction();
+        $stmt = $conn->prepare('UPDATE users SET verified = 1 WHERE id = ?');
+        $stmt->bind_param("i", $row['user_id']);
+        $stmt->execute();
+        $stmt = $conn->prepare('UPDATE email_verifications SET verified = 1 WHERE id = ?');
+        $stmt->bind_param("i", $row['id']);
+        $stmt->execute();
+        $conn->commit();
         $success = 'Email verified. You can now log in.';
-        audit_log($pdo, 'email.verified', $row['user_id'], ['verification_id' => $row['id']]);
+        audit_log($conn, 'email.verified', $row['user_id'], ['verification_id' => $row['id']]);
     } catch (Exception $e) {
-        $pdo->rollBack();
+        $conn->rollback();
         $error = 'Verification failed.';
     }
 }

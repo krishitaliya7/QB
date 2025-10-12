@@ -22,14 +22,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             // Simulate card validation
             if (strlen(str_replace([' ', '-'], '', $card_number)) === 16 && preg_match('/^(0[1-9]|1[0-2])\/\d{2}$/', $expiry_date) && strlen($cvv) >= 3) {
-                $stmt = $pdo->prepare("SELECT id FROM accounts WHERE user_id = ? LIMIT 1");
-                $stmt->execute([$user_id]);
-                $account = $stmt->fetch();
+                $stmt = $conn->prepare("SELECT id FROM accounts WHERE user_id = ? LIMIT 1");
+                $stmt->bind_param("i", $user_id);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $account = $result->fetch_assoc();
                 if ($account) {
-                    $stmt = $pdo->prepare("INSERT INTO transactions (user_id, account_id, description, amount, status) VALUES (?, ?, ?, ?, ?)");
-                    $stmt->execute([$user_id, $account['id'], "Payment to $cardholder_name", $amount, 'Completed']);
-                    $stmt = $pdo->prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?");
-                    $stmt->execute([$amount, $account['id']]);
+                    $stmt = $conn->prepare("INSERT INTO transactions (user_id, account_id, description, amount, status) VALUES (?, ?, ?, ?, ?)");
+                    $stmt->bind_param("iisds", $user_id, $account['id'], "Payment to $cardholder_name", $amount, 'Completed');
+                    $stmt->execute();
+                    $stmt = $conn->prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?");
+                    $stmt->bind_param("di", $amount, $account['id']);
+                    $stmt->execute();
                     $success = "Payment of $$amount processed successfully!";
                 } else {
                     $error = "No account found.";

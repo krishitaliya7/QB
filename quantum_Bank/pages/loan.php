@@ -27,22 +27,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } else {
         try {
             $interest_rate = $loan_type === 'Personal' ? 5.50 : ($loan_type === 'Business' ? 6.50 : 4.50);
-            $stmt = $pdo->prepare("INSERT INTO loans (user_id, loan_type, amount, interest_rate, term_months, status, applied_at) VALUES (?, ?, ?, ?, ?, 'Pending', NOW())");
-            $stmt->execute([$user_id, $loan_type, $amount, $interest_rate, $term_months]);
-            $loan_id = $pdo->lastInsertId();
+            $stmt = $conn->prepare("INSERT INTO loans (user_id, loan_type, amount, interest_rate, term_months, status, created_at) VALUES (?, ?, ?, ?, ?, 'Pending', NOW())");
+            $stmt->bind_param("isdii", $user_id, $loan_type, $amount, $interest_rate, $term_months);
+            $stmt->execute();
+            $loan_id = $conn->insert_id;
 
             // Send notification to user
-            $stmt = $pdo->prepare("SELECT email, username FROM users WHERE id = ?");
-            $stmt->execute([$user_id]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            $stmt = $conn->prepare("SELECT email, username FROM users WHERE id = ?");
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+            $user = $stmt->get_result()->fetch_assoc();
             if ($user && !empty($user['email'])) {
                 $html = "<p>Hello " . htmlspecialchars($user['username']) . ",</p>" .
                         "<p>Your application for a $loan_type loan of $" . number_format($amount, 2) . " has been submitted successfully (ID: #$loan_id).</p>" .
                         "<p>Status: Pending. We will notify you once it is reviewed.</p>";
                 send_mail($user['email'], 'Loan Application Submitted', strip_tags($html), '', $html);
             }
+            // Add message to inbox
+            add_message($user_id, 'confirmation', "Your application for a $loan_type loan of $" . number_format($amount, 2) . " has been submitted successfully (ID: #$loan_id). Status: Pending.");
             $success = "Loan application submitted successfully! You'll receive an email confirmation.";
-        } catch (PDOException $e) {
+        } catch (Exception $e) {
             $error = "Loan application failed: " . $e->getMessage();
         }
     }
@@ -54,45 +58,53 @@ if ($is_admin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']
     $action = $_POST['action'];
 
     try {
-        $pdo->beginTransaction();
+        $conn->begin_transaction();
         if ($action === 'delete') {
-            $stmt = $pdo->prepare("DELETE FROM loans WHERE id = ?");
-            $stmt->execute([$loan_id]);
+            $stmt = $conn->prepare("DELETE FROM loans WHERE id = ?");
+            $stmt->bind_param("i", $loan_id);
+            $stmt->execute();
         } else {
             $status = $action === 'approve' ? 'Approved' : 'Rejected';
-            $stmt = $pdo->prepare("UPDATE loans SET status = ?, updated_at = NOW() WHERE id = ?");
-            $stmt->execute([$status, $loan_id]);
+            $stmt = $conn->prepare("UPDATE loans SET status = ?, updated_at = NOW() WHERE id = ?");
+            $stmt->bind_param("si", $status, $loan_id);
+            $stmt->execute();
 
             // Notify user
-            $stmt = $pdo->prepare("SELECT u.email, u.username, l.loan_type, l.amount FROM loans l JOIN users u ON l.user_id = u.id WHERE l.id = ?");
-            $stmt->execute([$loan_id]);
-            $loan = $stmt->fetch(PDO::FETCH_ASSOC);
+            $stmt = $conn->prepare("SELECT u.email, u.username, l.user_id, l.loan_type, l.amount FROM loans l JOIN users u ON l.user_id = u.id WHERE l.id = ?");
+            $stmt->bind_param("i", $loan_id);
+            $stmt->execute();
+            $loan = $stmt->get_result()->fetch_assoc();
             if ($loan && !empty($loan['email'])) {
                 $html = "<p>Hello " . htmlspecialchars($loan['username']) . ",</p>" .
                         "<p>Your $loan[loan_type] loan application for $" . number_format($loan['amount'], 2) . " (ID: #$loan_id) has been $status.</p>";
                 send_mail($loan['email'], "Loan Application $status", strip_tags($html), '', $html);
             }
+            // Add message to inbox
+            if ($loan) {
+                add_message($loan['user_id'], 'confirmation', "Your $loan[loan_type] loan application for $" . number_format($loan['amount'], 2) . " (ID: #$loan_id) has been $status.");
+            }
         }
-        $pdo->commit();
+        $conn->commit();
         $success = "Loan $action action completed successfully.";
-    } catch (PDOException $e) {
-        $pdo->rollBack();
+    } catch (Exception $e) {
+        $conn->rollback();
         $error = "Failed to process loan action: " . $e->getMessage();
     }
 }
 
 // Fetch user's loans
-$stmt = $pdo->prepare("SELECT id, loan_type, amount, interest_rate, term_months, status, applied_at FROM loans WHERE user_id = ? ORDER BY applied_at DESC");
-$stmt->execute([$user_id]);
-$user_loans = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$stmt = $conn->prepare("SELECT id, loan_type, amount, interest_rate, term_months, status, created_at FROM loans WHERE user_id = ? ORDER BY created_at DESC");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$user_loans = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 // Fetch all loans for admin
 $all_loans = [];
 if ($is_admin) {
-    $stmt = $pdo->prepare("SELECT l.id, l.loan_type, l.amount, l.interest_rate, l.term_months, l.status, l.applied_at, u.username 
-                           FROM loans l JOIN users u ON l.user_id = u.id ORDER BY l.applied_at DESC");
+    $stmt = $conn->prepare("SELECT l.id, l.loan_type, l.amount, l.interest_rate, l.term_months, l.status, l.created_at, u.username
+                           FROM loans l JOIN users u ON l.user_id = u.id ORDER BY l.created_at DESC");
     $stmt->execute();
-    $all_loans = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $all_loans = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
 ?>
 
@@ -176,8 +188,18 @@ if ($is_admin) {
       <div class="mb-6 p-4 bg-green-100 text-green-800 rounded-md"><?php echo htmlspecialchars($success); ?></div>
     <?php endif; ?>
 
+    <!-- Tab Navigation -->
+    <div class="flex flex-wrap border-b border-gray-200 mb-6">
+      <button id="tab-apply" class="tab-button active px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600 bg-blue-50 rounded-t-md">Apply for Loan</button>
+      <button id="tab-myloans" class="tab-button px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">My Loans</button>
+      <?php if ($is_admin): ?>
+        <button id="tab-admin" class="tab-button px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">Admin Panel</button>
+      <?php endif; ?>
+    </div>
+
     <!-- Loan Application and EMI Calculator -->
-    <section class="bg-white p-6 rounded-xl shadow-md card-hover mb-8">
+    <div id="tab-apply-content" class="tab-content active">
+      <section class="bg-white p-6 rounded-xl shadow-md card-hover">
       <h3 class="text-xl font-bold text-gray-800 mb-4">Apply for a Loan & Calculate EMI</h3>
       <form id="loanForm" method="POST">
         <input type="hidden" name="action" value="apply_loan">
@@ -235,9 +257,11 @@ if ($is_admin) {
         </div>
       </div>
     </section>
+    </div>
 
     <!-- User's Loan History -->
-    <section class="bg-white p-6 rounded-xl shadow-md card-hover mb-8">
+    <div id="tab-myloans-content" class="tab-content hidden">
+      <section class="bg-white p-6 rounded-xl shadow-md card-hover">
       <h3 class="text-xl font-bold text-gray-800 mb-4">Your Loan History</h3>
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -266,7 +290,7 @@ if ($is_admin) {
                     <?php echo htmlspecialchars($loan['status']); ?>
                   </span>
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-500"><?php echo htmlspecialchars(date('Y-m-d', strtotime($loan['applied_at']))); ?></td>
+                <td class="px-4 py-3 text-sm text-gray-500"><?php echo htmlspecialchars(date('Y-m-d', strtotime($loan['created_at']))); ?></td>
                 <td class="px-4 py-3 text-sm">
                   <button onclick="showLoanDetails(<?php echo $loan['id']; ?>, '<?php echo htmlspecialchars($loan['loan_type']); ?>', <?php echo $loan['amount']; ?>, <?php echo $loan['interest_rate']; ?>, <?php echo $loan['term_months']; ?>)" class="text-blue-600 hover:underline">Details</button>
                 </td>
@@ -276,10 +300,12 @@ if ($is_admin) {
         </table>
       </div>
     </section>
+    </div>
 
     <!-- Admin Panel -->
     <?php if ($is_admin): ?>
-      <section id="admin-section" class="bg-white p-6 rounded-xl shadow-md card-hover">
+      <div id="tab-admin-content" class="tab-content hidden">
+        <section id="admin-section" class="bg-white p-6 rounded-xl shadow-md card-hover">
         <h3 class="text-xl font-bold text-gray-800 mb-4">Admin: Manage Loan Applications</h3>
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-gray-200">
@@ -310,7 +336,7 @@ if ($is_admin) {
                       <?php echo htmlspecialchars($loan['status']); ?>
                     </span>
                   </td>
-                  <td class="px-4 py-3 text-sm text-gray-500"><?php echo htmlspecialchars(date('Y-m-d', strtotime($loan['applied_at']))); ?></td>
+                  <td class="px-4 py-3 text-sm text-gray-500"><?php echo htmlspecialchars(date('Y-m-d', strtotime($loan['created_at']))); ?></td>
                   <td class="px-4 py-3 text-sm">
                     <?php if ($loan['status'] === 'Pending'): ?>
                       <form method="POST" class="inline">
@@ -339,6 +365,7 @@ if ($is_admin) {
           </table>
         </div>
       </section>
+      </div>
     <?php endif; ?>
   </main>
 
@@ -371,6 +398,30 @@ if ($is_admin) {
   </div>
 
   <script>
+    // Tab Switching
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        // Remove active class from all buttons
+        tabButtons.forEach(btn => {
+          btn.classList.remove('active', 'text-blue-600', 'border-b-2', 'border-blue-600', 'bg-blue-50');
+          btn.classList.add('text-gray-500', 'hover:text-gray-700');
+        });
+        // Add active class to clicked button
+        button.classList.add('active', 'text-blue-600', 'border-b-2', 'border-blue-600', 'bg-blue-50');
+        button.classList.remove('text-gray-500', 'hover:text-gray-700');
+
+        // Hide all tab contents
+        tabContents.forEach(content => content.classList.add('hidden'));
+
+        // Show the corresponding tab content
+        const tabId = button.id.replace('tab-', 'tab-') + '-content';
+        document.getElementById(tabId).classList.remove('hidden');
+      });
+    });
+
     // Mobile Menu Toggle
     document.getElementById('mobileMenuBtn').addEventListener('click', () => {
       document.getElementById('mobileMenu').classList.toggle('hidden');

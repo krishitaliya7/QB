@@ -1,9 +1,11 @@
 <?php
-function audit_log($pdo, $action, $userId = null, $meta = null) {
+function audit_log($conn, $action, $userId = null, $meta = null) {
     try {
         $ip = $_SERVER['REMOTE_ADDR'] ?? null;
-        $stmt = $pdo->prepare('INSERT INTO audit_logs (user_id, action, meta, ip) VALUES (?, ?, ?, ?)');
-        $stmt->execute([$userId, $action, $meta ? json_encode($meta) : null, $ip]);
+        $metaJson = $meta ? json_encode($meta) : null;
+        $stmt = $conn->prepare('INSERT INTO audit_logs (user_id, action, meta, ip) VALUES (?, ?, ?, ?)');
+        $stmt->bind_param("isss", $userId, $action, $metaJson, $ip);
+        $stmt->execute();
     } catch (Exception $e) {
         // ignore audit failures
     }

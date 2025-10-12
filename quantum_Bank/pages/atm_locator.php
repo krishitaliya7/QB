@@ -149,19 +149,17 @@
   </div>
 
   <script>
-
-    // Mock Data
-    const allLocations = [$stmt = $pdo-prepare("SELECT * FROM locations");
-$stmt-execute();
-$locations = $stmt-fetchAll();
-
-    // { id: 1, name: "Main Branch - Downtown", address: "123 Main St, Cityville, CA 90210", type: "branch", city: "Cityville", zip: "90210", hours: "Mon-Fri: 9 AM - 5 PM" },
-   //   { id: 2, name: "ATM - Central Plaza", address: "456 Oak Ave, Cityville, CA 90210", type: "atm", city: "Cityville", zip: "90210", access: "24/7" },
-     // { id: 3, name: "Northside Branch", address: "789 Pine Ln, Northtown, NY 10001", type: "branch", city: "Northtown", zip: "10001", hours: "Mon-Sat: 9 AM - 4 PM" },
-     // { id: 4, name: "ATM - Airport Terminal", address: "100 Airport Blvd, Airville, TX 75001", type: "atm", city: "Airville", zip: "75001", access: "24/7" },
-     // { id: 5, name: "Southside Branch", address: "101 River Rd, Southville, FL 33101", type: "branch", city: "Southville", zip: "33101", hours: "Mon-Fri: 10 AM - 6 PM" },
-
-    ];
+    // Fetch locations from PHP
+    const allLocations = <?php
+    $stmt = $conn->prepare("SELECT * FROM locations");
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $locations = [];
+    while ($row = $result->fetch_assoc()) {
+        $locations[] = $row;
+    }
+    echo json_encode($locations);
+    ?>;
 
     // Render Locations
     function renderLocations(locationsToDisplay) {

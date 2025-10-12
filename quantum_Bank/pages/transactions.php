@@ -11,14 +11,18 @@ requireLogin();
 $user_id = getUserId();
 
 // Fetch user's accounts (for 'from' dropdown and balances)
-$stmt = $pdo->prepare("SELECT id, account_type, account_number, balance FROM accounts WHERE user_id = ?");
-$stmt->execute([$user_id]);
-$accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$stmt = $conn->prepare("SELECT id, account_type, account_number, balance FROM accounts WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$accounts = $result->fetch_all(MYSQLI_ASSOC);
 
 // Fetch transaction history
-$stmt = $pdo->prepare("SELECT id, created_at, description, amount, status FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 100");
-$stmt->execute([$user_id]);
-$transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$stmt = $conn->prepare("SELECT id, created_at, description, amount, status FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 100");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$transactions = $result->fetch_all(MYSQLI_ASSOC);
 
 // Handle transfer POST
 $error = '';
@@ -42,9 +46,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             // Determine destination account id
             $destinationAccountId = null;
             if (!empty($to_external)) {
-                $stmt = $pdo->prepare('SELECT id FROM accounts WHERE account_number = ? LIMIT 1');
-                $stmt->execute([$to_external]);
-                $found = $stmt->fetch();
+                $stmt = $conn->prepare('SELECT id FROM accounts WHERE account_number = ? LIMIT 1');
+                $stmt->bind_param("s", $to_external);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $found = $result->fetch_assoc();
                 if ($found) $destinationAccountId = (int)$found['id'];
             }
             if ($destinationAccountId === null && $to > 0) $destinationAccountId = $to;
@@ -63,9 +69,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
                         // Rate limit
                         $rlWindow = date('Y-m-d H:i:s', time() - 30*60);
-                        $stmt = $pdo->prepare('SELECT COUNT(*) FROM transfer_otps WHERE user_id = ? AND created_at >= ?');
-                        $stmt->execute([$user_id, $rlWindow]);
-                        $recent = (int)$stmt->fetchColumn();
+                        $stmt = $conn->prepare('SELECT COUNT(*) as count FROM transfer_otps WHERE user_id = ? AND created_at >= ?');
+                        $stmt->bind_param("is", $user_id, $rlWindow);
+                        $stmt->execute();
+                        $result = $stmt->get_result();
+                        $row = $result->fetch_assoc();
+                        $recent = (int)$row['count'];
                         if ($recent >= 3) {
                             throw new Exception('Too many OTP requests in a short period. Try again later.');
                         }
@@ -73,14 +82,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         $otp = strval(random_int(100000, 999999));
                         $hash = password_hash($otp, PASSWORD_DEFAULT);
                         $expires = date('Y-m-d H:i:s', time() + $expirySeconds);
-                        $stmt = $pdo->prepare('INSERT INTO transfer_otps (user_id, from_account, to_account, amount, otp_hash, max_attempts, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
-                        $stmt->execute([$user_id, $from, $destinationAccountId, $amount, $hash, $maxAttempts, $expires]);
-                        $otpId = $pdo->lastInsertId();
+                        $stmt = $conn->prepare('INSERT INTO transfer_otps (user_id, from_account, to_account, amount, otp_hash, max_attempts, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
+                        $stmt->bind_param("iiidisi", $user_id, $from, $destinationAccountId, $amount, $hash, $maxAttempts, $expires);
+                        $stmt->execute();
+                        $otpId = $conn->insert_id;
 
                         // Send OTP email
-                        $stmt = $pdo->prepare('SELECT email, username FROM users WHERE id = ? LIMIT 1');
-                        $stmt->execute([$user_id]);
-                        $u = $stmt->fetch();
+                        $stmt = $conn->prepare('SELECT email, username FROM users WHERE id = ? LIMIT 1');
+                        $stmt->bind_param("i", $user_id);
+                        $stmt->execute();
+                        $result = $stmt->get_result();
+                        $u = $result->fetch_assoc();
                         if ($u && !empty($u['email'])) {
                             $html = "<p>Hello " . htmlspecialchars($u['username']) . ",</p>" .
                                     "<p>You've initiated a transfer of $" . number_format($amount,2) . " from account #$from to account #$destinationAccountId.</p>" .
@@ -89,68 +101,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             send_mail($u['email'], 'Verify your transfer', strip_tags($html), '', $html);
                         }
                         // Audit log
-                        audit_log($pdo, 'transfer.otp.created', $user_id, ['otp_id' => $otpId, 'from' => $from, 'to' => $destinationAccountId, 'amount' => $amount]);
+                        audit_log($conn, 'transfer.otp.created', $user_id, ['otp_id' => $otpId, 'from' => $from, 'to' => $destinationAccountId, 'amount' => $amount]);
                         $success = 'High-value transfer requires verification. An OTP has been sent to your email. <a href="transfer_verify.php">Enter OTP to complete transfer</a>';
                     } catch (Exception $e) {
                         $error = 'Failed to initiate secured transfer: ' . $e->getMessage();
                     }
-                } else {
-                    try {
-                        $pdo->beginTransaction();
-                        // Lock accounts
-                        $stmt = $pdo->prepare("SELECT id, user_id, balance FROM accounts WHERE id IN (?, ?) FOR UPDATE");
-                        $stmt->execute([$from, $destinationAccountId]);
-                        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                        $balances = [];
-                        $owners = [];
-                        foreach ($rows as $r) {
-                            $id = (int)$r['id'];
-                            $balances[$id] = (float)$r['balance'];
-                            $owners[$id] = (int)$r['user_id'];
-                        }
-                        if (!isset($balances[$from]) || !isset($balances[$destinationAccountId])) {
-                            throw new Exception('One of the accounts was not found.');
-                        }
-                        if ($balances[$from] < $amount) {
-                            throw new Exception('Insufficient funds in source account.');
-                        }
-                        // Update balances
-                        $stmt = $pdo->prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?");
-                        $stmt->execute([$amount, $from]);
-                        $stmt = $pdo->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
-                        $stmt->execute([$amount, $destinationAccountId]);
-                        // Record transactions
-                        $stmt = $pdo->prepare("INSERT INTO transactions (user_id, account_id, description, amount, status) VALUES (?, ?, ?, ?, 'Completed')");
-                        $senderDesc = "Transfer to account $destinationAccountId";
-                        $recipientDesc = "Transfer from account $from";
-                        $stmt->execute([$user_id, $from, $senderDesc, -$amount]);
-                        $recipientUserId = $owners[$destinationAccountId];
-                        $stmt->execute([$recipientUserId, $destinationAccountId, $recipientDesc, $amount]);
-                        $pdo->commit();
-                        // Audit log
-                        audit_log($pdo, 'transfer.completed', $user_id, ['from' => $from, 'to' => $destinationAccountId, 'amount' => $amount]);
-                        // Notify recipient
+                    } else {
                         try {
-                            $stmt = $pdo->prepare('SELECT email, username FROM users WHERE id = ? LIMIT 1');
-                            $stmt->execute([$recipientUserId]);
-                            $r = $stmt->fetch();
-                            if ($r && !empty($r['email'])) {
-                                $msg = "Hello {$r['username']},\n\nYou have received a transfer of $" . number_format($amount,2) . " to your account (ID: $destinationAccountId) from account ID $from.\n\nIf you did not expect this, contact support.";
-                                send_mail($r['email'], 'Incoming transfer', $msg);
+                            $conn->begin_transaction();
+                            // Lock accounts
+                            $stmt = $conn->prepare("SELECT id, user_id, balance FROM accounts WHERE id IN (?, ?) FOR UPDATE");
+                            $stmt->bind_param("ii", $from, $destinationAccountId);
+                            $stmt->execute();
+                            $result = $stmt->get_result();
+                            $rows = $result->fetch_all(MYSQLI_ASSOC);
+                            $balances = [];
+                            $owners = [];
+                            foreach ($rows as $r) {
+                                $id = (int)$r['id'];
+                                $balances[$id] = (float)$r['balance'];
+                                $owners[$id] = (int)$r['user_id'];
                             }
+                            if (!isset($balances[$from]) || !isset($balances[$destinationAccountId])) {
+                                throw new Exception('One of the accounts was not found.');
+                            }
+                            if ($balances[$from] < $amount) {
+                                throw new Exception('Insufficient funds in source account.');
+                            }
+                            // Update balances
+                            $stmt = $conn->prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?");
+                            $stmt->bind_param("di", $amount, $from);
+                            $stmt->execute();
+                            $stmt = $conn->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
+                            $stmt->bind_param("di", $amount, $destinationAccountId);
+                            $stmt->execute();
+                            // Record transactions
+                            $stmt = $conn->prepare("INSERT INTO transactions (user_id, account_id, description, amount, status) VALUES (?, ?, ?, ?, 'Completed')");
+                            $senderDesc = "Transfer to account $destinationAccountId";
+                            $recipientDesc = "Transfer from account $from";
+                            $stmt->bind_param("iisd", $user_id, $from, $senderDesc, -$amount);
+                            $stmt->execute();
+                            $recipientUserId = $owners[$destinationAccountId];
+                            $stmt->bind_param("iisd", $recipientUserId, $destinationAccountId, $recipientDesc, $amount);
+                            $stmt->execute();
+                            $conn->commit();
+                            // Audit log
+                            audit_log($conn, 'transfer.completed', $user_id, ['from' => $from, 'to' => $destinationAccountId, 'amount' => $amount]);
+                            // Notify recipient
+                            try {
+                                $stmt = $conn->prepare('SELECT email, username FROM users WHERE id = ? LIMIT 1');
+                                $stmt->bind_param("i", $recipientUserId);
+                                $stmt->execute();
+                                $result = $stmt->get_result();
+                                $r = $result->fetch_assoc();
+                                if ($r && !empty($r['email'])) {
+                                    $msg = "Hello {$r['username']},\n\nYou have received a transfer of $" . number_format($amount,2) . " to your account (ID: $destinationAccountId) from account ID $from.\n\nIf you did not expect this, contact support.";
+                                    send_mail($r['email'], 'Incoming transfer', $msg);
+                                }
+                            } catch (Exception $e) {
+                                // ignore
+                            }
+                            $success = 'Transfer completed successfully.';
+                            // Refresh transactions
+                            $stmt = $conn->prepare("SELECT id, created_at, description, amount, status FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 100");
+                            $stmt->bind_param("i", $user_id);
+                            $stmt->execute();
+                            $result = $stmt->get_result();
+                            $transactions = $result->fetch_all(MYSQLI_ASSOC);
                         } catch (Exception $e) {
-                            // ignore
+                            try { $conn->rollback(); } catch (Exception $ex) {}
+                            $error = 'Transfer failed: ' . $e->getMessage();
                         }
-                        $success = 'Transfer completed successfully.';
-                        // Refresh transactions
-                        $stmt = $pdo->prepare("SELECT id, created_at, description, amount, status FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 100");
-                        $stmt->execute([$user_id]);
-                        $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                    } catch (Exception $e) {
-                        $pdo->rollBack();
-                        $error = 'Transfer failed: ' . $e->getMessage();
                     }
-                }
             }
         }
     }

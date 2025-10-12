@@ -110,6 +110,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $stmt->bind_param("iisd", $recipient_user_id, $to, $desc_recipient, $credit_amount);
                             $stmt->execute();
                             $conn->commit();
+                            add_message($user_id, 'debit', "Amount debited: $" . number_format($amount, 2) . " from account $sender_account_number to $to_account_number");
+                            add_message($recipient_user_id, 'credit', "Amount credited: $" . number_format($amount, 2) . " to account $to_account_number from $sender_account_number");
                             $success = 'Transfer successful.';
                             $popup_amount = '$' . number_format($amount, 2);
                             $popup_to = maskAccount($to_account_number);

@@ -36,22 +36,23 @@ if (!function_exists('isAdmin')) {
 }
 
 if (!function_exists('isEmailVerified')) {
-    // Accepts a PDO instance and optional user id
-    function isEmailVerified($pdo, $userId = null) {
+    // Accepts a mysqli connection and optional user id
+    function isEmailVerified($conn, $userId = null) {
         if ($userId === null) $userId = getUserId();
         if (!$userId) return false;
-        // Allow calling without PDO by using global $pdo if available
-        if ($pdo === null) {
-            if (isset($GLOBALS['pdo']) && $GLOBALS['pdo'] instanceof PDO) {
-                $pdo = $GLOBALS['pdo'];
+        // Allow calling without conn by using global $conn if available
+        if ($conn === null) {
+            if (isset($GLOBALS['conn']) && $GLOBALS['conn'] instanceof mysqli) {
+                $conn = $GLOBALS['conn'];
             } else {
                 return false; // cannot determine
             }
         }
         try {
-            $stmt = $pdo->prepare('SELECT verified FROM users WHERE id = ? LIMIT 1');
-            $stmt->execute([$userId]);
-            $r = $stmt->fetch();
+            $stmt = $conn->prepare('SELECT verified FROM users WHERE id = ? LIMIT 1');
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $r = $stmt->get_result()->fetch_assoc();
             return $r && $r['verified'];
         } catch (Exception $e) {
             return false;
@@ -121,5 +122,68 @@ if (!function_exists('renderFlashes')) {
 }
 
 // Removed cache control headers to allow caching and prevent session loss on back button
+
+// Message helpers
+if (!function_exists('add_message')) {
+    function add_message($user_id, $type, $message) {
+        global $conn;
+        if (!$conn) return false;
+        try {
+            $stmt = $conn->prepare("INSERT INTO messages (user_id, type, message) VALUES (?, ?, ?)");
+            $stmt->bind_param("iss", $user_id, $type, $message);
+            $stmt->execute();
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+}
+
+if (!function_exists('get_unread_messages_count')) {
+    function get_unread_messages_count($user_id) {
+        global $conn;
+        if (!$conn) return 0;
+        try {
+            $stmt = $conn->prepare("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND read_status = 0");
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            return $result['count'];
+        } catch (Exception $e) {
+            return 0;
+        }
+    }
+}
+
+if (!function_exists('get_messages')) {
+    function get_messages($user_id, $limit = 10) {
+        global $conn;
+        if (!$conn) return [];
+        try {
+            $stmt = $conn->prepare("SELECT id, type, message, read_status, created_at FROM messages WHERE user_id = ? ORDER BY created_at DESC LIMIT ?");
+            $limit_param = $limit;
+            $stmt->bind_param("ii", $user_id, $limit_param);
+            $stmt->execute();
+            return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+}
+
+if (!function_exists('mark_message_read')) {
+    function mark_message_read($message_id, $user_id) {
+        global $conn;
+        if (!$conn) return false;
+        try {
+            $stmt = $conn->prepare("UPDATE messages SET read_status = 1 WHERE id = ? AND user_id = ?");
+            $stmt->bind_param("ii", $message_id, $user_id);
+            $stmt->execute();
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+}
 
 ?>

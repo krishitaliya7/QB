@@ -1,11 +1,7 @@
-# TODO: Implement Transfer Success Popup and Dynamic Recent Transactions
+# TODO List for QuantumBank Project
 
-## Steps to Complete
-- [x] Update dashboard.php to fetch and display real recent transactions (top 5, dynamic JSON output, JS population).
-- [ ] Update transfer.php to add success popup modal (mask recipient account, show debit message, JS trigger on success).
-- [ ] Update transfer_verify.php to redirect to transfer.php after success for popup reuse.
-- [ ] Test: Simulate transfer, verify popup and dashboard updates.
-
-## Progress Tracking
-- Started: [Date/Time]
-- Completed: dashboard.php dynamic transactions.
+- [x] Update the "Apply for Loan" button in dashboard.php to redirect to loan.php
+- [x] Update the "Loans" navigation link in dashboard.php to point to loan.php
+- [x] Convert all PDO database connections to mysqli in the codebase
+- [x] Fix syntax error in atm_locator.php for fetching locations
+- [x] Update button gradients in admin/loans.php for better UI
