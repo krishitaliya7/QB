@@ -71,12 +71,12 @@
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <input type="password" name="password" id="password" placeholder="Password" required 
+          <input type="password" name="password" id="password" placeholder="Password" minlength="8" required
             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
-          <p class="text-red-500 text-sm hidden" id="passwordError">Password must be at least 6 characters.</p>
+          <p class="text-red-500 text-sm hidden" id="passwordError">Password must be at least 8 characters.</p>
         </div>
         <div>
-          <input type="password" name="confirmPassword" id="confirmPassword" placeholder="Confirm Password" required 
+          <input type="password" name="confirmPassword" id="confirmPassword" placeholder="Confirm Password" minlength="8" required
             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
           <p class="text-red-500 text-sm hidden" id="confirmPasswordError">Passwords do not match.</p>
         </div>
@@ -179,7 +179,7 @@ function handleSubmit(event) {
 
   if (!fullName) showError('fullName', 'Full Name is required.'); else hideError('fullName');
   if (!email.includes('@')) showError('email', 'Please enter a valid email.'); else hideError('email');
-  if (password.length < 6) showError('password', 'Password must be at least 6 characters.'); else hideError('password');
+  if (password.length < 8) showError('password', 'Password must be at least 8 characters.'); else hideError('password');
   if (confirmPassword !== password) showError('confirmPassword', 'Passwords do not match.'); else hideError('confirmPassword');
   if (!address) showError('address', 'Address is required.'); else hideError('address');
   if (!phone.match(/^[0-9]{3}-[0-9]{3}-[0-9]{4}$/)) showError('phone', 'Phone must match 123-456-7890.'); else hideError('phone');
@@ -196,14 +196,21 @@ function handleSubmit(event) {
       body: formData
     })
     .then(async (response) => {
-      const data = await response.json();
-      alert(data.message || 'Account creation response received!');
-      if (response.ok) form.reset();
-    })
-    .catch(error => {
-      console.error('Error:', error);
-      alert('An error occurred. Please try again.');
-    });
+  if (!response.ok) {
+    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+  }
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    throw new Error('Expected JSON response from server');
+  }
+  const data = await response.json();
+  alert(data.message || 'Account creation response received!');
+  form.reset(); // Reset form only after successful response
+})
+.catch(error => {
+  console.error('Error:', error.message);
+  alert(`An error occurred: ${error.message}. Please try again.`);
+});
   }
 }
 </script>

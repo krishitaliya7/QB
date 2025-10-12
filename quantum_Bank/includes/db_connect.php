@@ -29,9 +29,44 @@ $port = getenv('QB_DB_PORT') ?: 3306;
 $conn = new mysqli($host, $user, $pass, $db, $port);
 
 if ($conn->connect_error) {
-    $msg = "Database connection failed: " . $conn->connect_error . "\n" .
-        "Check quantum_Bank/.env or environment variables and ensure MySQL is running.";
-    die(nl2br(htmlspecialchars($msg)));
+    // If database doesn't exist, try to create it
+    if ($conn->connect_error == "Unknown database '$db'") {
+        $conn_temp = new mysqli($host, $user, $pass, '', $port);
+        if ($conn_temp->connect_error) {
+            $msg = "Database connection failed: " . $conn_temp->connect_error . "\n" .
+                "Check quantum_Bank/.env or environment variables and ensure MySQL is running.";
+            die(nl2br(htmlspecialchars($msg)));
+        }
+        $sql = "CREATE DATABASE IF NOT EXISTS `$db` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci";
+        if ($conn_temp->query($sql) === TRUE) {
+            $conn_temp->close();
+            $conn = new mysqli($host, $user, $pass, $db, $port);
+            if ($conn->connect_error) {
+                $msg = "Database connection failed after creation: " . $conn->connect_error;
+                die(nl2br(htmlspecialchars($msg)));
+            }
+            // Import the schema
+            $sql_file = __DIR__ . '/../../quantum_bank.sql';
+            if (file_exists($sql_file)) {
+                $sql_content = file_get_contents($sql_file);
+                if ($conn->multi_query($sql_content)) {
+                    do {
+                        if ($result = $conn->store_result()) {
+                            $result->free();
+                        }
+                    } while ($conn->more_results() && $conn->next_result());
+                }
+            }
+        } else {
+            $msg = "Failed to create database: " . $conn_temp->error;
+            $conn_temp->close();
+            die(nl2br(htmlspecialchars($msg)));
+        }
+    } else {
+        $msg = "Database connection failed: " . $conn->connect_error . "\n" .
+            "Check quantum_Bank/.env or environment variables and ensure MySQL is running.";
+        die(nl2br(htmlspecialchars($msg)));
+    }
 }
 
 // Set charset to utf8mb4 for consistency

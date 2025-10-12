@@ -129,14 +129,14 @@ if ($hashed_pin === false) {
 }
 
 // --- Insert New User into Database ---
-$stmt_insert = $conn->prepare("INSERT INTO users (username, email, password, pin, kyc_document_type, kyc_document_path) VALUES (?, ?, ?, ?, ?, ?)");
+$stmt_insert = $conn->prepare("INSERT INTO users (username, email, password, pin) VALUES (?, ?, ?, ?)");
 if (!$stmt_insert) {
     http_response_code(500);
     echo json_encode(['message' => 'Failed to prepare user insertion statement: ' . $conn->error]);
     $conn->close();
     exit();
 }
-$stmt_insert->bind_param("ssssss", $username, $email, $hashed_password, $hashed_pin, $documentType, $documentPath);
+$stmt_insert->bind_param("ssss", $username, $email, $hashed_password, $hashed_pin);
 
 if ($stmt_insert->execute()) {
     $user_id = $conn->insert_id;

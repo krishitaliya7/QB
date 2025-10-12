@@ -65,7 +65,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                 $expires = date('Y-m-d H:i:s', time() + 86400);
                 $stmt = $conn->prepare('INSERT INTO email_verifications (user_id, token, expires_at) VALUES (?, ?, ?)');
                 $stmt->bind_param("iss", $newUserId, $token, $expires);
-                $stmt->execute();
                 $link = "http://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . "/verify_email.php?token=$token";
                 include '../includes/email_helpers.php';
                 $html = render_email_template(__DIR__ . '/../includes/email_templates/verify_email.php', ['username' => $username, 'link' => $link]);
@@ -77,6 +76,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
             } catch (Exception $e) {
                 $error = "Registration failed: " . $e->getMessage();
             }
+        }
+        $stmt->close();
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_password'])) {
+    $reset_email = filter_input(INPUT_POST, 'reset_email', FILTER_SANITIZE_EMAIL);
+    $new_password = $_POST['new_password'];
+    $confirm_password = $_POST['confirm_password'];
+    $csrf_token = $_POST['csrf_token'];
+
+    if (!verifyCsrfToken($csrf_token)) {
+        $reset_error = "Invalid CSRF token.";
+    } elseif (strlen($new_password) < 8) {
+        $reset_error = "Password must be at least 8 characters long.";
+    } elseif ($new_password !== $confirm_password) {
+        $reset_error = "Passwords do not match.";
+    } else {
+        $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->bind_param("s", $reset_email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows === 1) {
+            $user = $result->fetch_assoc();
+            $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+            $stmt = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
+            $stmt->bind_param("si", $hashed_password, $user['id']);
+            if ($stmt->execute()) {
+                audit_log($conn, 'password.reset.direct', $user['id'], ['email' => $reset_email]);
+                $reset_success = "Password has been reset successfully.";
+            } else {
+                $reset_error = "Failed to reset password. Please try again.";
+            }
+        } else {
+            $reset_error = "No account found with that email address.";
         }
         $stmt->close();
     }
@@ -240,6 +274,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                         <span><?php echo $success; ?></span>
                     </div>
                 <?php endif; ?>
+                <?php if (isset($reset_error)): ?>
+                    <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span><?php echo $reset_error; ?></span>
+                    </div>
+                <?php endif; ?>
+                <?php if (isset($reset_success)): ?>
+                    <div class="bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span><?php echo $reset_success; ?></span>
+                    </div>
+                <?php endif; ?>
                 <div class="hidden md:block">
                    
                 </div>
@@ -267,13 +317,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                             <input type="checkbox" id="remember" name="remember" class="h-4 w-4 rounded border-white-300 text-primary focus:ring-primary"> 
                             <span class="ml-2 text-white">Remember me</span>
                         </label>
-                        <a href="password_reset_request.php" class="text-sm text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded">Forgot Password?</a>
+                        <a href="#" class="text-sm text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" onclick="showResetForm()">Forgot Password?</a>
                     </div>
                     <div>
                        <button type="submit" name="login" class="w-full py-2.5 px-4 bg-white text-black rounded-lg font-medium focus:ring-2 focus:ring-accent focus:ring-offset-2">Sign In</button>
 
                     </div>
                 </form>
+
+                <!-- Direct Password Reset Form -->
+                <div id="resetForm" class="hidden mt-6 space-y-6">
+                    <h3 class="text-lg font-semibold text-white-800">Reset Password</h3>
+                    <form method="POST" id="passwordResetForm" class="space-y-4">
+                        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                        <div>
+                            <label for="reset_email" class="block text-sm font-medium text-white-700">Email Address</label>
+                            <input type="email" id="reset_email" name="reset_email" placeholder="you@example.com" required class="mt-1 block w-full border border-gray-300 rounded-lg py-2.5 px-4 text-sm input-focus">
+                        </div>
+                        <div>
+                            <label for="new_password" class="block text-sm font-medium text-white-700">New Password</label>
+                            <input type="password" id="new_password" name="new_password" placeholder="Enter new password" required minlength="8" class="mt-1 block w-full border border-gray-300 rounded-lg py-2.5 px-4 text-sm input-focus">
+                        </div>
+                        <div>
+                            <label for="confirm_password" class="block text-sm font-medium text-white-700">Confirm New Password</label>
+                            <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm new password" required class="mt-1 block w-full border border-gray-300 rounded-lg py-2.5 px-4 text-sm input-focus">
+                        </div>
+                        <div class="flex space-x-2">
+                            <button type="submit" name="reset_password" class="flex-1 py-2.5 px-4 btn-primary text-white rounded-lg font-medium focus:ring-2 focus:ring-accent focus:ring-offset-2">Reset Password</button>
+                            <button type="button" onclick="hideResetForm()" class="flex-1 py-2.5 px-4 bg-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-400">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+
                 <div class="mt-6 text-center">
                     <p class="text-sm text-white-600">Don't have an account? <a href="open_account.php" class="text-primary font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded">Create one now</a></p>
 
@@ -312,6 +387,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                 event.preventDefault();
             }
         });
+
+        document.getElementById('passwordResetForm')?.addEventListener('submit', function(event) {
+            const emailInput = document.getElementById('reset_email');
+            const newPassword = document.getElementById('new_password');
+            const confirmPassword = document.getElementById('confirm_password');
+
+            let isValid = true;
+
+            if (!emailInput.value || !emailInput.value.includes('@')) {
+                alert('Please enter a valid email address.');
+                isValid = false;
+            }
+
+            if (newPassword.value.length < 8) {
+                alert('Password must be at least 8 characters long.');
+                isValid = false;
+            }
+
+            if (newPassword.value !== confirmPassword.value) {
+                alert('Passwords do not match.');
+                isValid = false;
+            }
+
+            if (!isValid) {
+                event.preventDefault();
+            }
+        });
+
+        function showResetForm() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('resetForm').classList.remove('hidden');
+        }
+
+        function hideResetForm() {
+            document.getElementById('resetForm').classList.add('hidden');
+            document.getElementById('loginForm').classList.remove('hidden');
+        }
 
         document.getElementById('togglePassword').addEventListener('click', function() {
             const passwordInput = document.getElementById('loginPassword');

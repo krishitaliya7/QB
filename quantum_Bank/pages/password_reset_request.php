@@ -4,21 +4,6 @@ include '../includes/session.php';
 include '../includes/send_mail.php';
 include '../includes/audit.php';
 
-// ... (database connection established) ...
-
-// Check if email exists
-$stmt = $conn->prepare("SELECT id, full_name FROM users WHERE email = ?");
-$stmt->bind_param("s", $email);
-$stmt->execute();
-$result = $stmt->get_result();
-
-if ($result->num_rows === 1) {
-    $user = $result->fetch_assoc();
-    $user_id = $user['id'];
-    // Now proceed to insert a reset token
-}
-$stmt->close();
-
 $page_css = 'login.css';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -34,9 +19,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = $result->fetch_assoc();
         if ($user) {
             $token = bin2hex(random_bytes(32));
+            $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
             $expires = date('Y-m-d H:i:s', time() + 3600); // 1 hour
-            $stmt = $conn->prepare('INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)');
-            $stmt->bind_param("iss", $user['id'], $token, $expires);
+            $stmt = $conn->prepare('INSERT INTO password_resets (user_id, token, otp, expires_at) VALUES (?, ?, ?, ?)');
+            $stmt->bind_param("isss", $user['id'], $token, $otp, $expires);
             $stmt->execute();
             $token_id = $conn->insert_id;
             $link = "http://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . "/password_reset.php?token=$token";
@@ -44,6 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $html = render_email_template(__DIR__ . '/../includes/email_templates/password_reset.php', ['username' => $user['username'], 'link' => $link]);
             $msg = "Password reset link: $link";
             send_mail($email, 'Password reset', $msg, '', $html);
+            // Send OTP via in-app message
+            add_message($user['id'], 'otp', "Your password reset OTP is: $otp");
             audit_log($conn, 'password.reset.request', $user['id'], ['token_id' => $token_id]);
         }
         // Always show success message to avoid leaking which emails exist
