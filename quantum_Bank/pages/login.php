@@ -24,11 +24,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
             // if (isset($user['verified']) && !$user['verified']) {
             //     $error = 'Please verify your email before logging in. Check your inbox.';
             // } else {
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['username'] = $user['username'];
-                $_SESSION['role'] = $user['role'] ?? 'user';
-                session_regenerate_id(true); // Regenerate session ID for security
-                header('Location: dashboard.php');
+                // Generate OTP for login verification
+                $otp = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+                $otp_hash = password_hash($otp, PASSWORD_DEFAULT);
+                $expires_at = date('Y-m-d H:i:s', time() + 300); // 5 minutes expiry
+
+                // Store OTP in database
+                $stmt_otp = $conn->prepare("INSERT INTO login_otps (user_id, otp_hash, expires_at) VALUES (?, ?, ?)");
+                $stmt_otp->bind_param("iss", $user['id'], $otp_hash, $expires_at);
+                $stmt_otp->execute();
+                $otp_id = $conn->insert_id;
+                $stmt_otp->close();
+
+                // Send OTP via email
+                $subject = "QuantumBank Login Verification Code";
+                $message = "Your login verification code is: $otp\n\nThis code will expire in 5 minutes.";
+                $html_message = "<p>Your login verification code is: <strong>$otp</strong></p><p>This code will expire in 5 minutes.</p>";
+                send_mail($email, $subject, $message, '', $html_message);
+
+                // Store temporary session data
+                $_SESSION['login_user_id'] = $user['id'];
+                $_SESSION['login_email'] = $email;
+                $_SESSION['login_otp_id'] = $otp_id;
+
+                audit_log($conn, 'login.otp.sent', $user['id'], ['email' => $email]);
+
+                header('Location: login_verify.php');
                 exit;
             // }
         } else {

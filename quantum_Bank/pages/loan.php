@@ -2,6 +2,7 @@
 include '../includes/db_connect.php';
 include '../includes/session.php';
 include '../includes/send_mail.php';
+include '../includes/loan_approval.php';
 requireLogin();
 
 $user_id = getUserId();
@@ -97,6 +98,21 @@ $stmt = $conn->prepare("SELECT id, loan_type, amount, interest_rate, term_months
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $user_loans = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// Auto-approve loans for admin
+if ($is_admin) {
+    // Check for pending loans older than 2 minutes
+    $stmt = $conn->prepare("SELECT l.id, l.user_id, l.loan_type, l.amount FROM loans l WHERE l.status = 'Pending' AND l.created_at < DATE_SUB(NOW(), INTERVAL 2 MINUTE)");
+    $stmt->execute();
+    $pending_loans = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+    foreach ($pending_loans as $loan) {
+        $eligibility = checkLoanEligibility($conn, $loan['user_id'], $loan['loan_type'], $loan['amount']);
+        if ($eligibility['eligible']) {
+            autoApproveLoan($conn, $loan['id']);
+        }
+    }
+}
 
 // Fetch all loans for admin
 $all_loans = [];

@@ -201,7 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </svg>
             <div class="card p-8">
                 <h2 class="text-2xl font-semibold text-gray-800 mb-6">Reset Your Password</h2>
-                <p class="text-gray-600 mb-6">Enter the OTP from your messages and your new password.</p>
+                <p class="text-gray-600 mb-6">Enter the OTP from your messages (valid for 2 minutes) and your new password.</p>
                 <?php if ($error): ?>
                     <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg flex items-center mb-4">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

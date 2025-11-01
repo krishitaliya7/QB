@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user) {
             $token = bin2hex(random_bytes(32));
             $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-            $expires = date('Y-m-d H:i:s', time() + 3600); // 1 hour
+            $expires = date('Y-m-d H:i:s', time() + 120); // 2 minutes
             $stmt = $conn->prepare('INSERT INTO password_resets (user_id, token, otp, expires_at) VALUES (?, ?, ?, ?)');
             $stmt->bind_param("isss", $user['id'], $token, $otp, $expires);
             $stmt->execute();

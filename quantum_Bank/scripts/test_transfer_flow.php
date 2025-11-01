@@ -15,7 +15,7 @@ $dryRun = in_array('--dry-run', $argv, true);
 
 echo "Starting transfer OTP flow test (dry-run=" . ($dryRun ? 'yes' : 'no') . ")\n";
 
-$settings = include __DIR__ . '/../config/settings.php';
+$settings = include __DIR__ . '/../admin/config/settings.php';
 $threshold = $settings['high_value_threshold'] ?? 500.00;
 $otpExpiry = $settings['otp_expiry_seconds'] ?? 900;
 $maxAttempts = $settings['otp_max_attempts'] ?? 5;
@@ -59,7 +59,7 @@ try {
     $otpHash = password_hash($plainOtp, PASSWORD_DEFAULT);
     $expiresAt = date('Y-m-d H:i:s', time() + $otpExpiry);
     $stmt = $conn->prepare('INSERT INTO transfer_otps (user_id, from_account, to_account, amount, otp_hash, max_attempts, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    $stmt->bind_param("iiidsss", $senderId, $senderAcct, $recipientAcct, $amount, $otpHash, $maxAttempts, $expiresAt);
+    $stmt->bind_param("iiidsis", $senderId, $senderAcct, $recipientAcct, $amount, $otpHash, $maxAttempts, $expiresAt);
     $stmt->execute();
     $otpId = (int)$conn->insert_id;
     echo "Created OTP id={$otpId}, expires_at={$expiresAt}\n";
@@ -124,13 +124,17 @@ try {
     $stmt->execute();
 
     // record transactions
-    $stmt = $conn->prepare('INSERT INTO transactions (user_id, account_id, description, amount, status) VALUES (?, ?, ?, ?, "Completed")');
+    $stmt1 = $conn->prepare('INSERT INTO transactions (user_id, account_id, description, amount, status) VALUES (?, ?, ?, ?, ?)');
     $description1 = 'Test transfer to account ' . $recipientAcct;
-    $stmt->bind_param("iisd", $senderId, $senderAcct, $description1, -$amount);
-    $stmt->execute();
+    $status = 'Completed';
+    $debitAmount = -$amount;
+    $stmt1->bind_param("iisds", $senderId, $senderAcct, $description1, $debitAmount, $status);
+    $stmt1->execute();
+
+    $stmt2 = $conn->prepare('INSERT INTO transactions (user_id, account_id, description, amount, status) VALUES (?, ?, ?, ?, ?)');
     $description2 = 'Test transfer from account ' . $senderAcct;
-    $stmt->bind_param("iisd", $owners[$recipientAcct], $recipientAcct, $description2, $amount);
-    $stmt->execute();
+    $stmt2->bind_param("iisds", $owners[$recipientAcct], $recipientAcct, $description2, $amount, $status);
+    $stmt2->execute();
 
     if ($dryRun) {
         $conn->rollback();
