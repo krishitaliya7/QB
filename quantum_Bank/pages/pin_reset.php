@@ -212,8 +212,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 11c-1.104 0-2-.896-2-2s.896-2 2-2 2 .896 2 2-.896 2-2 2zm0 2c1.104 0 2 .896 2 2v3H10v-3c0-1.104.896-2 2-2zm0-10c-3.309 0-6 2.691-6 6v3c0 1.104-.896 2-2 2H4v6h16v-6h-2c-1.104 0-2-.896-2-2V9c0-3.309-2.691-6-6-6z"></path>
             </svg>
             <div class="card p-8">
-                <h2 class="text-2xl font-semibold text-gray-800 mb-6">Reset Your PIN</h2>
-                <p class="text-gray-600 mb-6">Enter the OTP from your email and your new PIN.</p>
+                <h2 class="text-2xl font-semibold text-white-800 mb-6">Reset Your PIN</h2>
+                <p class="text-white-600 mb-6">Enter the OTP from your email and your new PIN.</p>
                 <?php if ($error): ?>
                     <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg flex items-center mb-4">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -254,7 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </form>
                 <?php endif; ?>
                 <div class="mt-6 text-center">
-                    <p class="text-sm text-gray-600">Back to <a href="login.php" class="text-primary font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded">Login</a></p>
+                    <p class="text-sm text-white-600">Back to <a href="login.php" class="text-primary font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded">Login</a></p>
                 </div>
             </div>
         </div>
