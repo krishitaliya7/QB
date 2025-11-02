@@ -14,23 +14,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     if (!verifyCsrfToken($csrf_token)) {
         $error = "Invalid CSRF token.";
     } else {
-        $stmt = $conn->prepare("SELECT * FROM users WHERE email = ?");
+        $stmt = $conn->prepare("SELECT id, username, password, role FROM users WHERE email = ?");
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $result = $stmt->get_result();
         $user = $result->fetch_assoc();
         if ($user && password_verify($password, $user['password'])) {
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['role'] = $user['role'] ?? 'user';
-            session_regenerate_id(true);
+            // Generate OTP for login verification
+            $otp = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+            $otp_hash = password_hash($otp, PASSWORD_DEFAULT);
+            $settings = include __DIR__ . '/../admin/config/settings.php';
+            $expires_at = date('Y-m-d H:i:s', time() + ($settings['login_otp_expiry_seconds'] ?? 300)); // 5 minutes default
+            $max_attempts = $settings['login_otp_max_attempts'] ?? 3;
 
-            audit_log($conn, 'login.success', $user['id'], ['email' => $email]);
+            // Store OTP in database
+            $stmt_otp = $conn->prepare("INSERT INTO login_otps (user_id, otp_hash, expires_at, max_attempts) VALUES (?, ?, ?, ?)");
+            // Types: i = user_id (int), s = otp_hash (string), s = expires_at (string/datetime), i = max_attempts (int)
+            $stmt_otp->bind_param("issi", $user['id'], $otp_hash, $expires_at, $max_attempts);
+            $stmt_otp->execute();
+            $otp_id = $conn->insert_id;
+            $stmt_otp->close();
 
-            header('Location: dashboard.php');
+            // Create internal message to user's inbox with the OTP
+            $msg_type = 'login.otp';
+            $inbox_message = "Your login verification code is: $otp. It will expire by $expires_at.";
+            if ($stmt_msg = $conn->prepare("INSERT INTO messages (user_id, type, message, read_status, created_at) VALUES (?, ?, ?, 0, NOW())")) {
+                $stmt_msg->bind_param("iss", $user['id'], $msg_type, $inbox_message);
+                $stmt_msg->execute();
+                $stmt_msg->close();
+            }
+
+            // Set session for OTP verification
+            $_SESSION['login_user_id'] = $user['id'];
+            $_SESSION['login_email'] = $email;
+            $_SESSION['login_otp_id'] = $otp_id;
+            $_SESSION['login_otp_plain'] = $otp; // Store plain OTP for on-screen display
+
+            // Send OTP via email
+            $subject = "QuantumBank Login Verification Code";
+            // Prepare email bodies using template
+            $otp_value_for_template = $otp; // keep OTP available under a clear name
+            // Ensure template has access to $otp
+            $otp = $otp_value_for_template;
+            include '../includes/email_templates/login_otp.php';
+            // login_otp.php sets $message and $html_message
+            send_mail($email, $subject, $message, '', $html_message);
+
+            audit_log($conn, 'login.otp.sent', $user['id'], ['email' => $email]);
+
+            header('Location: login_verify.php');
             exit;
         } else {
             $error = "Invalid email or password.";
+            audit_log($conn, 'login.failed', null, ['email' => $email, 'reason' => 'invalid_credentials']);
         }
         $stmt->close();
     }
@@ -307,6 +343,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_password'])) {
                             <span class="ml-2 text-white">Remember me</span>
                         </label>
                         <a href="#" class="text-sm text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded" onclick="showResetForm()">Forgot Password?</a>
+                        <a href="pin_reset_request.php" class="text-sm text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded ml-4">Forgot PIN?</a>
                     </div>
                     <div>
                        <button type="submit" name="login" class="w-full py-2.5 px-4 bg-white text-black rounded-lg font-medium focus:ring-2 focus:ring-accent focus:ring-offset-2">Sign In</button>

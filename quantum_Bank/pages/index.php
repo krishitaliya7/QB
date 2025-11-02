@@ -1,4 +1,3 @@
-
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -19,10 +18,28 @@
       --error: #ef4444;
     }
 
+    .dark {
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --secondary: #34d399;
+      --accent: #fbbf24;
+      --dark: #0f172a;
+      --light: #1e293b;
+      --text: #94a3b8;
+      --error: #f87171;
+    }
+
     body {
       font-family: 'Inter', system-ui, sans-serif;
       background-color: var(--light);
+      color: var(--text);
       -webkit-font-smoothing: antialiased;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .dark body {
+      background-color: var(--dark);
+      color: var(--text);
     }
 
     .gradient-bg {
@@ -380,7 +397,7 @@
     <div class="container mx-auto px-6">
       <div class="flex flex-col md:flex-row items-center gap-8">
         <div class="md:w-1/2 mb-10 md:mb-0">
-          <img src="https://storage.googleapis.com/quantum-bank-assets/security-shield.webp" alt="QuantumBank security shield with encryption and protection layers icon" class="w-full max-w-md mx-auto" loading="lazy">
+          <img src="2.jpg" alt="QuantumBank security shield with encryption and protection layers icon" class="w-full max-w-md mx-auto" loading="lazy">
         </div>
         <div class="md:w-1/2 md:pl-12">
           <h2 class="text-3xl md:text-4xl font-bold mb-6 font-poppins">Quantum-Secure Banking</h2>
@@ -435,9 +452,9 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div class="bg-gray-50 p-6 rounded-xl card-hover" tabindex="0">
           <div class="flex items-center mb-4">
-            <img src="https://storage.googleapis.com/quantum-bank-assets/testimonial-1.webp" alt="Sarah Johnson, Marketing Director at TechCorp" class="w-12 h-12 rounded-full mr-4" loading="lazy">
+            <img src="3.jpg" alt="Sarah Johnson, Marketing Director at TechCorp" class="w-12 h-12 rounded-full mr-4" loading="lazy">
             <div>
-              <h4 class="font-bold text-base">Sarah Johnson</h4>
+              <h4 class="font-bold text-base">Itachi Uchiha</h4>
               <p class="text-sm text-gray-600">Marketing Director</p>
             </div>
           </div>
@@ -462,9 +479,9 @@
         </div>
         <div class="bg-gray-50 p-6 rounded-xl card-hover" tabindex="0">
           <div class="flex items-center mb-4">
-            <img src="https://storage.googleapis.com/quantum-bank-assets/testimonial-2.webp" alt="Michael Chen, Freelance Designer" class="w-12 h-12 rounded-full mr-4" loading="lazy">
+            <img src="4.jpg" alt="Madara Uchiha, Freelance Designer" class="w-12 h-12 rounded-full mr-4" loading="lazy">
             <div>
-              <h4 class="font-bold text-base">Michael Chen</h4>
+              <h4 class="font-bold text-base">Madara Uchiha</h4>
               <p class="text-sm text-gray-600">Freelance Designer</p>
             </div>
           </div>
@@ -489,9 +506,9 @@
         </div>
         <div class="bg-gray-50 p-6 rounded-xl card-hover" tabindex="0">
           <div class="flex items-center mb-4">
-            <img src="https://storage.googleapis.com/quantum-bank-assets/testimonial-3.webp" alt="David Rodriguez, Founder at StartupXYZ" class="w-12 h-12 rounded-full mr-4" loading="lazy">
+            <img src="1.jpg" alt="David Rodriguez, Founder at StartupXYZ" class="w-12 h-12 rounded-full mr-4" loading="lazy">
             <div>
-              <h4 class="font-bold text-base">David Rodriguez</h4>
+              <h4 class="font-bold text-base">Rovonovo Zoro</h4>
               <p class="text-sm text-gray-600">Startup Founder</p>
             </div>
           </div>
@@ -539,32 +556,32 @@
             
             <span class="text-xl font-bold text-white font-poppins">QuantumBank</span>
           </div>
-          <p class="text-base text-gray-400 leading-relaxed">Reimagining banking for the digital age with cutting-edge technology and unparalleled customer service.</p>
+          <p class="text-base text-black-400 leading-relaxed">Reimagining banking for the digital age with cutting-edge technology and unparalleled customer service.</p>
         </div>
         <div>
           <h3 class="text-lg font-semibold mb-4 text-white">Products</h3>
           <ul class="space-y-2">
-            <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Personal Banking</a></li>
-            <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Business Banking</a></li>
-            <li><a href="loan.php" class="text-base text-gray-400 hover:text-white transition">Loans</a></li>
-            <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Credit Cards</a></li>
-            <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Investments</a></li>
+            <li><a href="#" class="text-base text-gray-400 hover:text-black transition">Personal Banking</a></li>
+            <li><a href="#" class="text-base text-gray-400 hover:text-black transition">Business Banking</a></li>
+            <li><a href="loan.php" class="text-base text-gray-400 hover:text-black transition">Loans</a></li>
+            <li><a href="#" class="text-base text-gray-400 hover:text-black transition">Credit Cards</a></li>
+            <li><a href="#" class="text-base text-gray-400 hover:text-black transition">Investments</a></li>
           </ul>
         </div>
         <div>
           <h3 class="text-lg font-semibold mb-4 text-white">Company</h3>
           <ul class="space-y-2">
             <li><a href="about.html" class="text-base text-gray-400 hover:text-white transition">About Us</a></li>
-            <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Careers</a></li>
-            <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Press</a></li>
-            <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Blog</a></li>
-            <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Partners</a></li>
+            <li><a href="#" class="text-base text-gray-400 hover:text-black transition">Careers</a></li>
+            <li><a href="#" class="text-base text-gray-400 hover:text-black transition">Press</a></li>
+            <li><a href="#" class="text-base text-gray-400 hover:text-black transition">Blog</a></li>
+            <li><a href="#" class="text-base text-gray-400 hover:text-black transition">Partners</a></li>
           </ul>
         </div>
         <div>
           <h3 class="text-lg font-semibold mb-4 text-white">Support</h3>
           <ul class="space-y-2">
-            <li><a href="contact.html" class="text-base text-gray-400 hover:text-white transition">Help Center</a></li>
+            <li><a href="contact.html" class="text-base text-black-400 hover:text-black transition">Help Center</a></li>
             <li><a href="contact.html" class="text-base text-gray-400 hover:text-white transition">Contact Us</a></li>
             <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Security</a></li>
             <li><a href="#" class="text-base text-gray-400 hover:text-white transition">Privacy Policy</a></li>
@@ -572,8 +589,13 @@
           </ul>
         </div>
       </div>
-      <div class="pt-8 border-t border-gray-800">
-        <p class="text-base text-gray-400 text-center">© 2023 QuantumBank. All rights reserved.</p>
+      <div class="pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center">
+        <p class="text-base text-gray-400 text-center md:text-left">© 2023 QuantumBank. All rights reserved.</p>
+        <button id="darkModeToggle" class="text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Toggle Dark Mode">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+          </svg>
+        </button>
       </div>
     </div>
   </footer>
@@ -893,6 +915,22 @@
           // Default to logged out
           document.getElementById('userNav').classList.add('hidden');
         });
+
+      // Dark mode toggle
+      const darkModeToggle = document.getElementById('darkModeToggle');
+      const html = document.documentElement;
+
+      // Load saved theme
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark') {
+        html.classList.add('dark');
+      }
+
+      darkModeToggle.addEventListener('click', () => {
+        html.classList.toggle('dark');
+        const isDark = html.classList.contains('dark');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      });
     });
   </script>
 </body>

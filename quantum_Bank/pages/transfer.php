@@ -20,12 +20,12 @@ $user_id = getUserId();
 $error = '';
 $success = '';
 $errors = [];
-$popup_amount = '';
-$popup_to = '';
-$show_popup = false;
+
 
 // Fetch user's accounts for the 'from' dropdown
+
 $stmt = $conn->prepare("SELECT id, account_type, balance, account_number FROM accounts WHERE user_id = ?");
+
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $accounts = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -36,8 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $to_account_number = filter_input(INPUT_POST, 'to_account', FILTER_SANITIZE_NUMBER_INT);
     $amount = (float)filter_input(INPUT_POST, 'amount', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
     $description = filter_input(INPUT_POST, 'description', FILTER_SANITIZE_STRING);
-    $pin = filter_input(INPUT_POST, 'pin', FILTER_SANITIZE_STRING);
+
     $csrf = $_POST['csrf_token'] ?? '';
+    $pin = filter_input(INPUT_POST, 'pin', FILTER_SANITIZE_STRING);
+
 
     // Server-side validation
     if (!verifyCsrfToken($csrf)) {
@@ -46,11 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($amount <= 0) {
         $errors['amount'] = 'Amount must be positive.';
     }
-    if (empty($pin)) {
-        $errors['pin'] = 'PIN is required.';
-    } elseif (!preg_match('/^\d{4}$/', $pin)) {
-        $errors['pin'] = 'PIN must be exactly 4 digits.';
-    }
+
     if (empty($to_account_number)) {
         $errors['to_account'] = 'Recipient account number is required.';
     }
@@ -81,59 +79,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($balance < $amount) {
                     $errors['amount'] = 'Insufficient funds.';
                 } else {
-                    // Verify PIN
-                    $stmt = $conn->prepare("SELECT pin FROM users WHERE id = ?");
-                    $stmt->bind_param("i", $user_id);
-                    $stmt->execute();
-                    $user_pin = $stmt->get_result()->fetch_assoc()['pin'];
-                    if (!password_verify($pin, $user_pin)) {
-                        $errors['pin'] = 'Invalid PIN.';
+                    // Use PIN for all transfers
+                    if (empty($pin)) {
+                        $errors['pin'] = 'PIN is required.';
+                    } elseif (!preg_match('/^\d{4}$/', $pin)) {
+                        $errors['pin'] = 'PIN must be exactly 4 digits.';
                     } else {
-                        // Generate OTP for transfer verification
-                        try {
-                            $settings = include __DIR__ . '/../admin/config/settings.php';
-                            $expirySeconds = $settings['otp_expiry_seconds'] ?? 900;
-                            $maxAttempts = $settings['otp_max_attempts'] ?? 5;
+                        // Verify PIN against user's PIN
+                        $stmt = $conn->prepare("SELECT pin FROM users WHERE id = ?");
+                        $stmt->bind_param("i", $user_id);
+                        $stmt->execute();
+                        $user_pin_hash = $stmt->get_result()->fetch_assoc()['pin'];
+                        if (!password_verify($pin, $user_pin_hash)) {
+                            $errors['pin'] = 'Invalid PIN.';
+                        }
+                    }
 
-                            // Rate limit
-                            $rlWindow = date('Y-m-d H:i:s', time() - 30*60);
-                            $stmt = $conn->prepare('SELECT COUNT(*) as count FROM transfer_otps WHERE user_id = ? AND created_at >= ?');
-                            $stmt->bind_param("is", $user_id, $rlWindow);
+                    if (empty($errors)) {
+                        // Perform transfer directly
+                        try {
+                            $conn->begin_transaction();
+
+                            // Lock accounts
+                            $stmt = $conn->prepare('SELECT id, user_id, balance FROM accounts WHERE id IN (?, ?) FOR UPDATE');
+                            $stmt->bind_param("ii", $from, $to);
                             $stmt->execute();
                             $result = $stmt->get_result();
-                            $row = $result->fetch_assoc();
-                            $recent = (int)$row['count'];
-                            if ($recent >= 3) {
-                                throw new Exception('Too many OTP requests in a short period. Try again later.');
+                            $rows = $result->fetch_all(MYSQLI_ASSOC);
+                            $balances = [];
+                            $owners = [];
+                            foreach ($rows as $r) {
+                                $balances[$r['id']] = (float)$r['balance'];
+                                $owners[$r['id']] = (int)$r['user_id'];
                             }
+                            if (!isset($balances[$from]) || !isset($balances[$to])) throw new Exception('Account not found.');
+                            if ($balances[$from] < $amount) throw new Exception('Insufficient funds.');
 
-                            $otp = strval(random_int(100000, 999999));
-                            $hash = password_hash($otp, PASSWORD_DEFAULT);
-                            $expires = date('Y-m-d H:i:s', time() + $expirySeconds);
-                            $stmt = $conn->prepare('INSERT INTO transfer_otps (user_id, from_account, to_account, amount, otp_hash, max_attempts, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
-                            $stmt->bind_param("iiidisi", $user_id, $from, $to, $amount, $hash, $maxAttempts, $expires);
+                            // Update balances
+                            $stmt = $conn->prepare('UPDATE accounts SET balance = balance - ? WHERE id = ?');
+                            $stmt->bind_param("di", $amount, $from);
+                            $stmt->execute();
+                            $stmt = $conn->prepare('UPDATE accounts SET balance = balance + ? WHERE id = ?');
+                            $stmt->bind_param("di", $amount, $to);
                             $stmt->execute();
 
-                            // Send OTP email
-                            $stmt = $conn->prepare('SELECT email, username FROM users WHERE id = ? LIMIT 1');
+                            $recipientUserId = $owners[$to];
+
+                            // Fetch usernames for descriptions
+                            $stmt = $conn->prepare('SELECT username FROM users WHERE id = ?');
                             $stmt->bind_param("i", $user_id);
                             $stmt->execute();
-                            $result = $stmt->get_result();
-                            $u = $result->fetch_assoc();
-                            if ($u && !empty($u['email'])) {
-                                $html = "<p>Hello " . htmlspecialchars($u['username']) . ",</p>" .
-                                        "<p>You've initiated a transfer of $" . number_format($amount,2) . " from account #$from to account #$to.</p>" .
-                                        "<p>Please verify this transfer by entering the OTP code on the verification page. The code expires in " . intval($expirySeconds/60) . " minutes.</p>" .
-                                        "<p>Your OTP code: <strong>" . htmlspecialchars($otp) . "</strong></p>";
-                                send_mail($u['email'], 'Verify your transfer', strip_tags($html), '', $html);
-                            }
-                            // Audit log
-                            audit_log($conn, 'transfer.otp.created', $user_id, ['from' => $from, 'to' => $to, 'amount' => $amount]);
-                            // Redirect to verification page
-                            header('Location: transfer_verify.php');
-                            exit();
+                            $sender_username = $stmt->get_result()->fetch_assoc()['username'];
+                            $stmt->bind_param("i", $recipientUserId);
+                            $stmt->execute();
+                            $recipient_username = $stmt->get_result()->fetch_assoc()['username'];
+
+                            // Record transactions
+                            $stmt = $conn->prepare('INSERT INTO transactions (user_id, account_id, description, amount, status) VALUES (?, ?, ?, ?, ?)');
+                            $desc1 = 'Transfer to ' . $recipient_username;
+                            $neg_amount = -$amount;
+                            $status1 = 'Completed';
+                            $stmt->bind_param("iisds", $user_id, $from, $desc1, $neg_amount, $status1);
+                            $stmt->execute();
+                            $desc2 = 'Transfer from ' . $sender_username;
+                            $pos_amount = $amount;
+                            $status2 = 'Completed';
+                            $stmt->bind_param("iisds", $recipientUserId, $to, $desc2, $pos_amount, $status2);
+                            $stmt->execute();
+
+                            $conn->commit();
+                            audit_log($conn, 'transfer.completed', $user_id, ['from' => $from, 'to' => $to, 'amount' => $amount]);
+                            $success = 'Transfer completed successfully.';
+
+                            // Add message to inbox
+                            add_message($user_id, 'confirmation', "Your transfer of $" . number_format($amount, 2) . " from account $from to account $to has been completed successfully.");
+
+                            // Notify recipient
+                            try {
+                                $stmt = $conn->prepare('SELECT email, username FROM users WHERE id = ? LIMIT 1');
+                                $stmt->bind_param("i", $recipientUserId);
+                                $stmt->execute();
+                                $result = $stmt->get_result();
+                                $r = $result->fetch_assoc();
+                                if ($r && !empty($r['email'])) {
+                                    $msg = "Hello {$r['username']},\n\nYou have received a transfer of $" . number_format($amount,2) . " to your account (ID: $to).";
+                                    send_mail($r['email'], 'Incoming transfer', $msg);
+                                }
+                            } catch (Exception $e) {}
                         } catch (Exception $e) {
-                            $errors['general'] = 'Failed to initiate transfer verification: ' . $e->getMessage();
+                            try { $conn->rollback(); } catch (Exception $ex) {}
+                            $errors['general'] = 'Failed to complete transfer: ' . $e->getMessage();
                         }
                     }
                 }
@@ -396,16 +431,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="confetti-piece" style="left: 90%; animation-delay: 4s; background: #fd79a8;"></div>
                         </div>
                     </div>
-                    <!-- Success Modal -->
-                    <div id="successModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden z-50">
-                        <div class="bg-white p-6 rounded-xl max-w-md w-full mx-4">
-                            <h3 class="text-xl font-bold mb-4 text-center">Transfer Successful</h3>
-                            <p class="mb-4 text-gray-600 text-center"><?php echo htmlspecialchars($popup_amount); ?> is debited from your account and transferred to <?php echo htmlspecialchars($popup_to); ?> account.</p>
-                            <div class="flex justify-center">
-                                <button id="closeModal" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">OK</button>
-                            </div>
-                        </div>
-                    </div>
+
                     <a href="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" class="btn-primary w-full py-2.5 px-4 text-white rounded-lg font-medium text-center block focus:ring-2 focus:ring-accent focus:ring-offset-2">
                         Make Another Transfer
                     </a>
@@ -422,15 +448,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </ul>
                         </div>
                     <?php endif; ?>
-                    <!-- Tab Navigation -->
-                    <div class="flex border-b border-gray-200 mb-6">
-                        <button id="detailsTab" class="py-2 px-4 text-sm font-medium text-primary border-b-2 border-primary">Transfer Details</button>
-                        <button id="confirmTab" class="py-2 px-4 text-sm font-medium text-gray-500 hover:text-primary" disabled>Confirm Transfer</button>
-                    </div>
-                    <!-- Tab Content -->
-                    <div id="detailsContent" class="tab-content">
-                        <form id="transferForm" method="POST" class="space-y-6">
-                            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                    <form id="transferForm" method="POST" class="space-y-6">
+                        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                        <input type="hidden" name="action" value="transfer">
                             <div>
                                 <label for="from_account" class="block text-sm font-medium text-gray-700">From Account</label>
                                 <select id="from_account" name="from_account_id" required class="mt-1 block w-full border border-gray-300 rounded-lg py-2.5 px-4 text-sm input-focus">
@@ -457,45 +477,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <p class="error-message" id="amount_error"></p>
                             </div>
                             <div>
+                                <label for="pin" class="block text-sm font-medium text-gray-700">PIN</label>
+                                <input type="password" id="pin" name="pin" placeholder="Enter 4-digit PIN" maxlength="4" required class="mt-1 block w-full border border-gray-300 rounded-lg py-2.5 px-4 text-sm input-focus">
+                                <p class="error-message" id="pin_error"></p>
+                            </div>
+                            <div>
                                 <label for="description" class="block text-sm font-medium text-gray-700">Description (Optional)</label>
                                 <input type="text" id="description" name="description" placeholder="Enter description" class="mt-1 block w-full border border-gray-300 rounded-lg py-2.5 px-4 text-sm input-focus">
                             </div>
-                            <button type="button" id="nextButton" class="btn-primary w-full py-2.5 px-4 text-white rounded-lg font-medium focus:ring-2 focus:ring-accent focus:ring-offset-2">
-                                Next: Confirm Transfer
+                            <button type="submit" class="btn-primary w-full py-2.5 px-4 text-white rounded-lg font-medium focus:ring-2 focus:ring-accent focus:ring-offset-2">
+                                Transfer Funds
                             </button>
                         </form>
                     </div>
-                    <div id="confirmContent" class="tab-content hidden">
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">From Account</label>
-                                <p id="confirmFrom" class="mt-1 text-sm text-gray-900"></p>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">To Account Number</label>
-                                <p id="confirmTo" class="mt-1 text-sm text-gray-900"></p>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Amount</label>
-                                <p id="confirmAmount" class="mt-1 text-sm text-gray-900"></p>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Description</label>
-                                <p id="confirmDescription" class="mt-1 text-sm text-gray-900"></p>
-                            </div>
-                            <div>
-                                <label for="pin" class="block text-sm font-medium text-gray-700">PIN</label>
-                                <input type="password" id="pin" name="pin" maxlength="4" placeholder="****" required class="mt-1 block w-full border border-gray-300 rounded-lg py-2.5 px-4 text-sm input-focus text-center tracking-widest">
-                                <p class="error-message" id="pin_error"></p>
-                            </div>
-                            <button type="submit" form="transferForm" id="submitButton" class="btn-primary w-full py-2.5 px-4 text-white rounded-lg font-medium focus:ring-2 focus:ring-accent focus:ring-offset-2">
-                                Transfer Money
-                            </button>
-                            <button type="button" id="backButton" class="w-full py-2.5 px-4 text-gray-700 bg-gray-200 rounded-lg font-medium hover:bg-gray-300">
-                                Back to Details
-                            </button>
-                        </div>
-                    </div>
+
                     <div id="alertContainer" class="mt-4"></div>
                 <?php endif; ?>
             </div>
@@ -503,137 +498,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </main>
 
     <script>
-        const form = document.getElementById('transferForm');
-        const submitButton = document.getElementById('submitButton');
-        const alertContainer = document.getElementById('alertContainer');
-        const detailsTab = document.getElementById('detailsTab');
-        const confirmTab = document.getElementById('confirmTab');
-        const detailsContent = document.getElementById('detailsContent');
-        const confirmContent = document.getElementById('confirmContent');
-        const nextButton = document.getElementById('nextButton');
-        const backButton = document.getElementById('backButton');
-
-        // Tab switching functions
-        function showDetailsTab() {
-            detailsTab.classList.add('text-primary', 'border-b-2', 'border-primary');
-            detailsTab.classList.remove('text-gray-500');
-            confirmTab.classList.add('text-gray-500');
-            confirmTab.classList.remove('text-primary', 'border-b-2', 'border-primary');
-            detailsContent.classList.remove('hidden');
-            confirmContent.classList.add('hidden');
-        }
-
-        function showConfirmTab() {
-            confirmTab.classList.add('text-primary', 'border-b-2', 'border-primary');
-            confirmTab.classList.remove('text-gray-500');
-            detailsTab.classList.add('text-gray-500');
-            detailsTab.classList.remove('text-primary', 'border-b-2', 'border-primary');
-            confirmContent.classList.remove('hidden');
-            detailsContent.classList.add('hidden');
-        }
-
-        // Tab click events
-        detailsTab.addEventListener('click', showDetailsTab);
-        confirmTab.addEventListener('click', showConfirmTab);
-
-        // Next button
-        nextButton.addEventListener('click', () => {
-            // Validate details before proceeding
-            const fromAccount = document.getElementById('from_account').value;
-            const toAccount = document.getElementById('to_account').value.trim();
-            const amount = parseFloat(document.getElementById('amount').value);
-            const description = document.getElementById('description').value;
-
-            if (!fromAccount || !toAccount || isNaN(amount) || amount <= 0) {
-                alert('Please fill in all required fields correctly.');
-                return;
+        // Real-time validation on blur
+        document.getElementById('to_account').addEventListener('blur', () => {
+            const field = document.getElementById('to_account');
+            const error = document.getElementById('to_account_error');
+            if (!field.value.trim()) {
+                field.classList.add('border-red-500');
+                if (error) error.style.display = 'block';
+            } else {
+                field.classList.remove('border-red-500');
+                if (error) error.style.display = 'none';
             }
-
-            // Populate confirm tab
-            const selectedOption = document.getElementById('from_account').selectedOptions[0];
-            document.getElementById('confirmFrom').textContent = selectedOption.text;
-            document.getElementById('confirmTo').textContent = toAccount;
-            document.getElementById('confirmAmount').textContent = '$' + amount.toFixed(2);
-            document.getElementById('confirmDescription').textContent = description || 'None';
-
-            showConfirmTab();
         });
 
-        // Back button
-        backButton.addEventListener('click', showDetailsTab);
-
-        if (form) {
-            // Validate field and display error
-            const validateField = (id, errorId, condition, message) => {
-                const field = document.getElementById(id);
-                const error = document.getElementById(errorId) || document.createElement('p');
-                error.id = errorId;
-                error.className = 'error-message';
-                error.textContent = message;
-                if (condition) {
-                    field.classList.add('border-red-500');
-                    if (!document.getElementById(errorId)) {
-                        field.parentElement.appendChild(error);
-                    }
-                    error.style.display = 'block';
-                    return false;
-                } else {
-                    field.classList.remove('border-red-500');
-                    error.style.display = 'none';
-                    return true;
-                }
-            };
-
-            // Real-time validation on blur
-            document.getElementById('to_account').addEventListener('blur', () => {
-                validateField('to_account', 'to_account_error', !document.getElementById('to_account').value.trim(), 'Recipient account number is required.');
-            });
-
-            document.getElementById('amount').addEventListener('blur', () => {
-                const amount = parseFloat(document.getElementById('amount').value);
-                const selectedOption = document.getElementById('from_account').selectedOptions[0];
-                const balance = parseFloat(selectedOption.dataset.balance);
-                validateField('amount', 'amount_error', isNaN(amount) || amount <= 0 || amount > balance, 'Amount must be positive and within balance.');
-            });
-
-            document.getElementById('pin').addEventListener('blur', () => {
-                const pin = document.getElementById('pin').value;
-                validateField('pin', 'pin_error', pin.length !== 4 || !/^\d{4}$/.test(pin), 'PIN must be exactly 4 digits.');
-            });
-
-            // Form submission
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                alertContainer.innerHTML = '';
-
-                const toAccount = document.getElementById('to_account').value.trim();
-                const amount = parseFloat(document.getElementById('amount').value);
-                const pin = document.getElementById('pin').value;
-                const selectedOption = document.getElementById('from_account').selectedOptions[0];
-                const balance = parseFloat(selectedOption.dataset.balance);
-
-                const isToValid = validateField('to_account', 'to_account_error', !toAccount, 'Recipient account number is required.');
-                const isAmountValid = validateField('amount', 'amount_error', isNaN(amount) || amount <= 0 || amount > balance, 'Amount must be positive and within balance.');
-                const isPinValid = validateField('pin', 'pin_error', pin.length !== 4 || !/^\d{4}$/.test(pin), 'PIN must be exactly 4 digits.');
-
-                if (!isToValid || !isAmountValid || !isPinValid) {
-                    const alert = document.createElement('div');
-                    alert.className = 'bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg flex items-center';
-                    alert.innerHTML = `
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        <span>Please fix the errors before submitting.</span>
-                    `;
-                    alertContainer.appendChild(alert);
-                    return;
-                }
-
-                submitButton.disabled = true;
-                submitButton.textContent = 'Processing...';
-                form.submit();
-            });
-        }
+        document.getElementById('amount').addEventListener('blur', () => {
+            const amount = parseFloat(document.getElementById('amount').value);
+            const selectedOption = document.getElementById('from_account').selectedOptions[0];
+            const balance = parseFloat(selectedOption.dataset.balance);
+            const field = document.getElementById('amount');
+            const error = document.getElementById('amount_error');
+            if (isNaN(amount) || amount <= 0 || amount > balance) {
+                field.classList.add('border-red-500');
+                if (error) error.style.display = 'block';
+            } else {
+                field.classList.remove('border-red-500');
+                if (error) error.style.display = 'none';
+            }
+        });
 
         document.getElementById('mobileMenuBtn').addEventListener('click', () => {
             document.getElementById('mobileMenu').classList.toggle('hidden');
@@ -643,13 +534,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             document.getElementById('mobileMenu').classList.add('hidden');
         });
 
-        if (<?php echo $show_popup ? 'true' : 'false'; ?>) {
-            document.getElementById('successModal').classList.remove('hidden');
-        }
-
-        document.getElementById('closeModal').addEventListener('click', () => {
-            document.getElementById('successModal').classList.add('hidden');
-        });
     </script>
 </body>
 </html>

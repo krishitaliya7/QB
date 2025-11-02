@@ -25,6 +25,45 @@
                     }
                 });
         }
+
+        // Handle resend verification form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            const resendForm = document.getElementById('resendForm');
+            const resendBtn = document.getElementById('resendBtn');
+            if (resendForm && resendBtn) {
+                resendForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    resendBtn.disabled = true;
+                    resendBtn.textContent = 'Sending...';
+
+                    const formData = new FormData(resendForm);
+                    fetch(resendForm.action, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.text())
+                    .then(data => {
+                        if (data.includes('Verification email sent')) {
+                            resendBtn.textContent = 'Sent!';
+                            setTimeout(() => {
+                                resendBtn.disabled = false;
+                                resendBtn.textContent = 'Resend';
+                            }, 3000);
+                        } else {
+                            resendBtn.disabled = false;
+                            resendBtn.textContent = 'Resend';
+                            alert('Failed to send verification email. Please try again.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        resendBtn.disabled = false;
+                        resendBtn.textContent = 'Resend';
+                        alert('An error occurred. Please try again.');
+                    });
+                });
+            }
+        });
     </script>
     <style>
         /* Small page-specific overrides to ensure pixel matching */
@@ -77,9 +116,10 @@
             if (!$verified): ?>
                 <div class="alert alert-warning d-flex justify-content-between align-items-center">
                     <div>Your email is not verified. Please verify to unlock all features.</div>
-                    <form method="POST" action="resend_verification.php" class="m-0">
+                    <form method="POST" action="pages/resend_verification.php" id="resendForm" class="m-0">
                         <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-                        <button class="btn btn-sm btn-outline-primary">Resend</button>
+                        <input type="hidden" name="ajax" value="1">
+                        <button type="submit" class="btn btn-sm btn-outline-primary" id="resendBtn">Resend</button>
                     </form>
                 </div>
         <?php endif; endif; ?>

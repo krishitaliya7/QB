@@ -28,6 +28,26 @@ $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $recent_transactions = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
+
+// Fetch user's loans
+$stmt = $conn->prepare("SELECT loan_type, amount, interest_rate, term_months, status FROM loans WHERE user_id = ? ORDER BY created_at DESC");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$user_loans = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+// Auto-approve loans for all users (check pending loans older than 2 minutes)
+include '../includes/loan_approval.php';
+$stmt = $conn->prepare("SELECT l.id, l.user_id, l.loan_type, l.amount FROM loans l WHERE l.user_id = ? AND l.status = 'Pending' AND l.created_at < DATE_SUB(NOW(), INTERVAL 2 MINUTE)");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$pending_loans = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+foreach ($pending_loans as $loan) {
+    $eligibility = checkLoanEligibility($conn, $loan['user_id'], $loan['loan_type'], $loan['amount']);
+    if ($eligibility['eligible']) {
+        autoApproveLoan($conn, $loan['id']);
+    }
+}
 ?>
 
     
@@ -225,11 +245,7 @@ $stmt->close();
 
     const transactions = <?php echo json_encode($recent_transactions); ?>;
 
-    const loans = [
-      { type: 'Personal Loan', amount: 10000, interest: 5.5, term: 36, status: 'Approved' },
-      { type: 'Home Loan', amount: 200000, interest: 3.8, term: 360, status: 'Pending' },
-      { type: 'Auto Loan', amount: 25000, interest: 4.2, term: 60, status: 'Approved' }
-    ];
+    const loans = <?php echo json_encode($user_loans); ?>;
 
     // Calculate total balance
     const totalBalance = accounts.reduce((sum, account) => sum + parseFloat(account.balance), 0);
@@ -288,12 +304,12 @@ $stmt->close();
     loans.forEach(loan => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">${loan.type}</td>
-        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${loan.amount.toLocaleString()}</td>
-        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">${loan.interest}%</td>
-        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">${loan.term} months</td>
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">${loan.loan_type}</td>
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${parseFloat(loan.amount).toLocaleString()}</td>
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">${parseFloat(loan.interest_rate).toFixed(1)}%</td>
+        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">${loan.term_months} months</td>
         <td class="px-4 md:px-6 py-4 whitespace-nowrap">
-          <span class="inline-block px-2 py-1 text-xs font-medium rounded-full ${loan.status === 'Approved' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">${loan.status}</span>
+          <span class="inline-block px-2 py-1 text-xs font-medium rounded-full ${loan.status === 'Approved' ? 'bg-green-100 text-green-800' : loan.status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}">${loan.status}</span>
         </td>
       `;
       loansTable.appendChild(tr);

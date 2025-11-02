@@ -3,58 +3,56 @@ include '../includes/db_connect.php';
 include '../includes/session.php';
 include '../includes/send_mail.php';
 include '../includes/audit.php';
-requireLogin();
 
 $page_css = 'login.css';
-$user_id = getUserId();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
     $csrf = $_POST['csrf_token'] ?? '';
     if (!verifyCsrfToken($csrf)) {
         $error = 'Invalid CSRF token.';
     } else {
-        // Create a new verification token
-        $token = bin2hex(random_bytes(32));
-        $expires = date('Y-m-d H:i:s', time() + 86400);
-        $stmt = $conn->prepare('INSERT INTO email_verifications (user_id, token, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE token = VALUES(token), expires_at = VALUES(expires_at)');
-        $stmt->bind_param("iss", $user_id, $token, $expires);
-        $stmt->execute();
-        $link = "http://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . "/verify_email.php?token=$token";
-        // send
-        $stmt = $conn->prepare('SELECT email, username FROM users WHERE id = ? LIMIT 1');
-        $stmt->bind_param("i", $user_id);
+        $stmt = $conn->prepare('SELECT id, username FROM users WHERE email = ?');
+        $stmt->bind_param("s", $email);
         $stmt->execute();
         $result = $stmt->get_result();
-        $r = $result->fetch_assoc();
-        if ($r) {
+        $user = $result->fetch_assoc();
+        if ($user) {
+            $token = bin2hex(random_bytes(32));
+            $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $expires = date('Y-m-d H:i:s', time() + 120); // 2 minutes
+            $stmt = $conn->prepare('INSERT INTO pin_resets (user_id, token, otp, expires_at) VALUES (?, ?, ?, ?)');
+            $stmt->bind_param("isss", $user['id'], $token, $otp, $expires);
+            $stmt->execute();
+            $token_id = $conn->insert_id;
+            $link = "http://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . "/pin_reset.php?token=$token";
             include '../includes/email_helpers.php';
-            $html = render_email_template(__DIR__ . '/../includes/email_templates/verify_email.php', ['username' => $r['username'], 'link' => $link]);
-            $text = "Verify: $link";
-            send_mail($r['email'], 'Verify your email', $text, '', $html);
-            add_message($user_id, 'email_verification', 'Verification email sent to your email address.');
+            $html = render_email_template(__DIR__ . '/../includes/email_templates/pin_reset.php', ['username' => $user['username'], 'link' => $link]);
+            $msg = "PIN reset link: $link";
+            send_mail($email, 'PIN reset', $msg, '', $html);
+            audit_log($conn, 'pin.reset.request', $user['id'], ['token_id' => $token_id]);
+            // Redirect to OTP insertion form
+            header('Location: pin_reset.php?token=' . $token);
+            exit();
+        } else {
+            // Always show success message to avoid leaking which emails exist
+            $success = 'If that email exists in our system, a PIN reset link has been sent.';
         }
-        audit_log($conn, 'email.verification.sent', $user_id, ['token' => $token]);
-        $success = 'Verification email sent. Check your inbox.';
+        $_SESSION['success'] = $success;
     }
 }
 
-// Handle AJAX requests
-if (isset($_POST['ajax']) && $_POST['ajax'] == '1') {
-    if (isset($success)) {
-        echo $success;
-    } elseif (isset($error)) {
-        echo $error;
-    }
-    exit;
+if (isset($_SESSION['success'])) {
+    $success = $_SESSION['success'];
+    unset($_SESSION['success']);
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resend Verification - QuantumBank</title>
+    <title>QuantumBank PIN Reset</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -94,6 +92,32 @@ if (isset($_POST['ajax']) && $_POST['ajax'] == '1') {
             box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
         }
 
+        .input-focus {
+            transition: all 0.3s ease;
+        }
+
+        .input-focus:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        .error-message {
+            color: var(--error);
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+            display: none;
+        }
+
+        .success-message {
+            color: var(--success);
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        #successPopup {
+            transition: opacity 0.3s ease;
+        }
+
         .btn-primary {
             background-color: var(--primary);
             transition: background-color 0.3s ease, transform 0.2s ease;
@@ -102,6 +126,16 @@ if (isset($_POST['ajax']) && $_POST['ajax'] == '1') {
         .btn-primary:hover {
             background-color: var(--primary-dark);
             transform: translateY(-2px);
+        }
+
+        .lock-icon {
+            opacity: 0.1;
+            position: absolute;
+            top: 10%;
+            right: 10%;
+            width: 200px;
+            height: 200px;
+            z-index: -1;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -120,6 +154,15 @@ if (isset($_POST['ajax']) && $_POST['ajax'] == '1') {
             }
             .text-gray-800 {
                 color: #e2e8f0;
+            }
+            .lock-icon {
+                opacity: 0.2;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .lock-icon {
+                display: none;
             }
         }
     </style>
@@ -164,11 +207,14 @@ if (isset($_POST['ajax']) && $_POST['ajax'] == '1') {
         </div>
     </nav>
 
-    <main class="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div class="space-y-8">
-                <h1 class="text-4xl sm:text-5xl font-bold text-gray-800">Resend Verification</h1>
-                <p class="text-lg text-gray-600 leading-relaxed">Didn't receive your verification email? No worries! Click the button to resend it to your registered email address.</p>
+    <main class="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8 relative">
+        <div class="max-w-md mx-auto">
+            <svg class="lock-icon hidden md:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 11c-1.104 0-2-.896-2-2s.896-2 2-2 2 .896 2 2-.896 2-2 2zm0 2c1.104 0 2 .896 2 2v3H10v-3c0-1.104.896-2 2-2zm0-10c-3.309 0-6 2.691-6 6v3c0 1.104-.896 2-2 2H4v6h16v-6h-2c-1.104 0-2-.896-2-2V9c0-3.309-2.691-6-6-6z"></path>
+            </svg>
+            <div class="card p-8">
+                <h2 class="text-2xl font-semibold text-white-800 mb-6">Reset Your PIN</h2>
+                <p class="text-white-600 mb-6">Enter your email address to receive a PIN reset link.</p>
                 <?php if (isset($error)): ?>
                     <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg flex items-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -178,54 +224,46 @@ if (isset($_POST['ajax']) && $_POST['ajax'] == '1') {
                     </div>
                 <?php endif; ?>
                 <?php if (isset($success)): ?>
-                    <div class="bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg flex items-center">
+                    <div id="successPopup" class="fixed top-4 right-4 bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg flex items-center shadow-lg z-50 max-w-sm">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                         </svg>
                         <span><?php echo $success; ?></span>
                     </div>
                 <?php endif; ?>
-            </div>
-
-            <div class="card p-8">
-                <h2 class="text-2xl font-semibold text-gray-800 mb-6">Resend Verification Email</h2>
-                <form method="POST" id="resendForm" class="space-y-6">
+                <form method="POST" id="resetForm" class="space-y-6">
                     <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-                    <div class="text-center">
-                        <svg class="mx-auto h-16 w-16 text-primary mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                        </svg>
-                        <p class="text-gray-600 mb-6">Click the button below to resend your verification email. Make sure to check your spam folder if you don't see it in your inbox.</p>
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-white-700">Email Address</label>
+                        <input type="email" id="email" name="email" placeholder="you@example.com" required class="mt-1 block w-full border border-gray-300 rounded-lg py-2.5 px-4 text-sm input-focus" aria-describedby="emailError">
+                        <p class="error-message" id="emailError">Please enter a valid email address.</p>
                     </div>
-                    <button type="submit" class="w-full py-3 px-4 btn-primary text-white rounded-lg font-medium focus:ring-2 focus:ring-accent focus:ring-offset-2 flex items-center justify-center">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                        </svg>
-                        Resend Verification Email
-                    </button>
+                    <div>
+                        <button type="submit" class="w-full py-2.5 px-4 btn-primary text-white rounded-lg font-medium focus:ring-2 focus:ring-accent focus:ring-offset-2">Send Reset Link</button>
+                    </div>
                 </form>
-
                 <div class="mt-6 text-center">
-                    <p class="text-sm text-gray-600">Already verified? <a href="dashboard.php" class="text-primary font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded">Go to Dashboard</a></p>
-                    <p class="text-sm text-gray-600 mt-2">Wrong email? <a href="login.php" class="text-primary font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded">Go back to login</a></p>
+                    <p class="text-sm text-white-600">Back to <a href="login.php" class="text-primary font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded">Login</a></p>
                 </div>
             </div>
         </div>
     </main>
 
-    <footer class="site-footer">
-        <div class="container">
-            <p>&copy; <?php echo date('Y'); ?> QuantumBank. All rights reserved.</p>
-            <div class="muted">
-                <a href="about.php">About Us</a> |
-                <a href="#">Contact Us</a> |
-                <a href="#">Privacy Policy</a> |
-                <a href="#">Terms of Service</a>
-            </div>
-        </div>
-    </footer>
+    <?php include '../includes/footer.php'; ?>
 
     <script>
+        document.getElementById('resetForm').addEventListener('submit', function(event) {
+            const emailInput = document.getElementById('email');
+            const emailError = document.getElementById('emailError');
+
+            if (!emailInput.value || !emailInput.value.includes('@')) {
+                emailError.style.display = 'block';
+                event.preventDefault();
+            } else {
+                emailError.style.display = 'none';
+            }
+        });
+
         document.getElementById('mobileMenuBtn').addEventListener('click', () => {
             document.getElementById('mobileMenu').classList.toggle('hidden');
         });
@@ -233,6 +271,17 @@ if (isset($_POST['ajax']) && $_POST['ajax'] == '1') {
         document.getElementById('closeMobileMenu').addEventListener('click', () => {
             document.getElementById('mobileMenu').classList.add('hidden');
         });
+
+        // Auto-hide success popup after 5 seconds
+        const successPopup = document.getElementById('successPopup');
+        if (successPopup) {
+            setTimeout(() => {
+                successPopup.style.opacity = '0';
+                setTimeout(() => {
+                    successPopup.remove();
+                }, 300); // Allow fade out animation
+            }, 5000); // 5 seconds
+        }
     </script>
 </body>
 </html>

@@ -14,13 +14,35 @@ if (!isset($_SESSION['login_user_id']) || !isset($_SESSION['login_email']) || !i
 $user_id = $_SESSION['login_user_id'];
 $email = $_SESSION['login_email'];
 $otp_id = $_SESSION['login_otp_id'];
+$display_otp = isset($_SESSION['login_otp_plain']) ? $_SESSION['login_otp_plain'] : null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_otp'])) {
-    $entered_otp = $_POST['otp'];
+// Handle simple confirm login - use session OTP
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_login'])) {
     $csrf_token = $_POST['csrf_token'];
+    
+    if (!verifyCsrfToken($csrf_token)) {
+        $error = "Invalid CSRF token.";
+    } elseif ($display_otp) {
+        // Use the session OTP for verification
+        $entered_otp = $display_otp;
+        // Fall through to verification logic below
+    } else {
+        $error = "No OTP available. Please try logging in again.";
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['verify_otp']) || isset($_POST['confirm_login']))) {
+    if (!isset($entered_otp)) {
+        $entered_otp = $_POST['otp'] ?? null;
+    }
+    if (!isset($csrf_token)) {
+        $csrf_token = $_POST['csrf_token'] ?? '';
+    }
 
     if (!verifyCsrfToken($csrf_token)) {
         $error = "Invalid CSRF token.";
+    } elseif (empty($entered_otp)) {
+        $error = "Please enter the verification code.";
     } else {
         // Get OTP from database
         $stmt = $conn->prepare("SELECT otp_hash, expires_at, attempts, max_attempts FROM login_otps WHERE id = ? AND user_id = ?");
@@ -40,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_otp'])) {
                 $stmt_cleanup->execute();
                 $stmt_cleanup->close();
                 // Clear session
-                unset($_SESSION['login_user_id'], $_SESSION['login_email'], $_SESSION['login_otp_id']);
+                unset($_SESSION['login_user_id'], $_SESSION['login_email'], $_SESSION['login_otp_id'], $_SESSION['login_otp_plain']);
             } elseif ($otp_record['attempts'] >= $otp_record['max_attempts']) {
                 $error = "Too many failed attempts. Please try logging in again.";
                 // Clean up OTP
@@ -49,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_otp'])) {
                 $stmt_cleanup->execute();
                 $stmt_cleanup->close();
                 // Clear session
-                unset($_SESSION['login_user_id'], $_SESSION['login_email'], $_SESSION['login_otp_id']);
+                unset($_SESSION['login_user_id'], $_SESSION['login_email'], $_SESSION['login_otp_id'], $_SESSION['login_otp_plain']);
             } elseif (password_verify($entered_otp, $otp_record['otp_hash'])) {
                 // Successful verification
                 $stmt_user = $conn->prepare("SELECT username, role FROM users WHERE id = ?");
@@ -70,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_otp'])) {
                 $stmt_cleanup->close();
 
                 // Clear temporary session data
-                unset($_SESSION['login_user_id'], $_SESSION['login_email'], $_SESSION['login_otp_id']);
+                unset($_SESSION['login_user_id'], $_SESSION['login_email'], $_SESSION['login_otp_id'], $_SESSION['login_otp_plain']);
 
                 audit_log($conn, 'login.success', $user_id, ['email' => $email]);
 
@@ -93,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_otp'])) {
                     $stmt_cleanup->execute();
                     $stmt_cleanup->close();
                     // Clear session
-                    unset($_SESSION['login_user_id'], $_SESSION['login_email'], $_SESSION['login_otp_id']);
+                    unset($_SESSION['login_user_id'], $_SESSION['login_email'], $_SESSION['login_otp_id'], $_SESSION['login_otp_plain']);
                 } else {
                     $error = "Invalid OTP. " . ($otp_record['max_attempts'] - $new_attempts) . " attempts remaining.";
                 }
@@ -101,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_otp'])) {
         } else {
             $error = "OTP verification failed. Please try logging in again.";
             // Clear session
-            unset($_SESSION['login_user_id'], $_SESSION['login_email'], $_SESSION['login_otp_id']);
+            unset($_SESSION['login_user_id'], $_SESSION['login_email'], $_SESSION['login_otp_id'], $_SESSION['login_otp_plain']);
         }
         $stmt->close();
     }
@@ -140,10 +162,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_otp'])) {
 
         // Update session
         $_SESSION['login_otp_id'] = $new_otp_id;
+        $_SESSION['login_otp_plain'] = $otp; // Store plain OTP for display
 
         audit_log($conn, 'login.otp.resent', $user_id, ['email' => $email]);
 
         $success = "A new verification code has been sent to your email.";
+        $display_otp = $otp; // Update display OTP
     }
 }
 ?>
@@ -288,7 +312,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_otp'])) {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div class="space-y-8">
                 <h1 class="text-4xl sm:text-5xl font-bold text-gray-800">Verify Your Login</h1>
-                <p class="text-lg text-gray-600 leading-relaxed">We've sent a 6-digit verification code to <strong><?php echo htmlspecialchars($email); ?></strong>. Please enter it below to complete your login.</p>
+                <p class="text-lg text-gray-600 leading-relaxed">Your verification code has been generated. Use it below to complete your login.</p>
+                
+                <?php if ($display_otp): ?>
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-6 text-center">
+                    <p class="text-sm text-gray-600 mb-2">Your Verification Code:</p>
+                    <div class="text-5xl font-bold text-blue-600 tracking-widest font-mono mb-2" id="displayOtp"><?php echo htmlspecialchars($display_otp); ?></div>
+                    <p class="text-xs text-gray-500">This code was also sent to <strong><?php echo htmlspecialchars($email); ?></strong></p>
+                </div>
+                <?php endif; ?>
                 <?php if (isset($error)): ?>
                     <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg flex items-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -316,16 +348,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_otp'])) {
             </div>
 
             <div class="card p-8">
-                <h2 class="text-2xl font-semibold text-white-800 mb-6">Enter Verification Code</h2>
+                <h2 class="text-2xl font-semibold text-white-800 mb-6">Confirm Your Login</h2>
+                
+                <?php if ($display_otp): ?>
+                <div class="mb-6">
+                    <form method="POST" id="confirmForm" class="space-y-4">
+                        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                            <p class="text-sm text-green-800 mb-2">Your verification code is displayed above.</p>
+                            <p class="text-xs text-green-600">Click the button below to confirm your login.</p>
+                        </div>
+                        <button type="submit" name="confirm_login" class="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-semibold text-lg focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all transform hover:scale-105">
+                            ✓ Confirm Login
+                        </button>
+                    </form>
+                </div>
+                
+                <div class="relative my-6">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div class="relative flex justify-center text-sm">
+                        <span class="px-2 bg-white text-gray-500">OR</span>
+                    </div>
+                </div>
+                <?php endif; ?>
+                
                 <form method="POST" id="otpForm" class="space-y-6">
                     <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
                     <div>
-                        <label for="otp" class="block text-sm font-medium text-white-700">6-Digit Code</label>
-                        <input type="text" id="otp" name="otp" placeholder="000000" maxlength="6" pattern="[0-9]{6}" required class="mt-1 block w-full border border-gray-300 rounded-lg py-2.5 px-4 text-sm text-center text-2xl tracking-widest input-focus" aria-describedby="otpError">
+                        <label for="otp" class="block text-sm font-medium text-white-700">Enter Code Manually (Optional)</label>
+                        <input type="text" id="otp" name="otp" placeholder="000000" maxlength="6" pattern="[0-9]{6}" class="mt-1 block w-full border border-gray-300 rounded-lg py-2.5 px-4 text-sm text-center text-2xl tracking-widest input-focus" aria-describedby="otpError">
                         <p class="error-message" id="otpError">Please enter a valid 6-digit code.</p>
                     </div>
                     <div>
-                        <button type="submit" name="verify_otp" class="w-full py-2.5 px-4 bg-black text-white rounded-lg font-medium focus:ring-2 focus:ring-accent focus:ring-offset-2">Verify & Sign In</button>
+                        <button type="submit" name="verify_otp" class="w-full py-2.5 px-4 bg-gray-700 hover:bg-gray-800 text-white rounded-lg font-medium focus:ring-2 focus:ring-accent focus:ring-offset-2">Verify & Sign In</button>
                     </div>
                 </form>
 

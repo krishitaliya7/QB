@@ -19,21 +19,21 @@ function checkLoanEligibility($conn, $user_id, $loan_type, $amount) {
         if ($balance < 0) {
             return ['eligible' => false, 'reason' => 'Insufficient balance for Personal loan'];
         }
-        if ($score < 6.0) {
+        if ($score < 5.0) {
             return ['eligible' => false, 'reason' => 'Banking score too low for Personal loan'];
         }
     } elseif ($loan_type === 'Business') {
         if ($balance < 100000) {
             return ['eligible' => false, 'reason' => 'Insufficient balance for Business loan'];
         }
-        if ($score < 6.0) {
+        if ($score < 5.0) {
             return ['eligible' => false, 'reason' => 'Banking score too low for Business loan'];
         }
     } elseif ($loan_type === 'Home') {
         if ($balance < 0) {
             return ['eligible' => false, 'reason' => 'Insufficient balance for Home loan'];
         }
-        if ($score < 6.0) {
+        if ($score < 5.0) {
             return ['eligible' => false, 'reason' => 'Banking score too low for Home loan'];
         }
     }
