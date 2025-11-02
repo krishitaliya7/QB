@@ -38,15 +38,15 @@
     <h2 class="text-2xl md:text-3xl font-semibold mb-8 text-indigo-700">Why Choose QuantumBank?</h2>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
       <div class="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition">
-        <img src="security-icon.png" alt="Security" class="w-20 mx-auto mb-4">
+        <img src="security.png" alt="Security" class="w-20 mx-auto mb-4">
         <p class="font-medium text-gray-700">Military-grade Security</p>
       </div>
       <div class="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition">
-        <img src="speed-icon.png" alt="Speed" class="w-20 mx-auto mb-4">
+        <img src="speed.png" alt="Speed" class="w-20 mx-auto mb-4">
         <p class="font-medium text-gray-700">Lightning-Fast Transactions</p>
       </div>
       <div class="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition">
-        <img src="smart-wallet-icon.png" alt="Smart Wallet" class="w-20 mx-auto mb-4">
+        <img src="wallet.png" alt="Smart Wallet" class="w-20 mx-auto mb-4">
         <p class="font-medium text-gray-700">Smart Financial Management</p>
       </div>
     </div>
