@@ -123,7 +123,7 @@
     <div id="mobileMenu" class="hidden md:hidden bg-white text-gray-800 absolute top-0 left-0 w-full h-screen flex flex-col items-center justify-center space-y-4">
       <a href="Dashboard.html" class="text-lg hover:underline">Dashboard</a>
       <a href="#" class="text-lg hover:underline">Accounts</a>
-      <a href="Payments.php" class="text-lg hover:underline">Payments</a>
+      <a href="payments.php" class="text-lg hover:underline">Payments</a>
       <a href="cards.php" class="text-lg hover:underline">Cards</a>
       <a href="#" class="text-lg hover:underline">Investments</a>
       <a href="#" class="text-lg hover:underline">Calculators</a>
@@ -609,7 +609,7 @@
         </svg>
         <span class="text-xs mt-1">Home</span>
       </a>
-      <a href="Payments.html" class="flex flex-col items-center text-gray-800 p-4" aria-label="Transfer Navigation">
+      <a href="payments.php" class="flex flex-col items-center text-gray-800 p-4" aria-label="Transfer Navigation">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
         </svg>

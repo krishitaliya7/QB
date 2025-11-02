@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ATM & Branch Locator - QuantumBank</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Maps API - Replace YOUR_API_KEY with your actual Google Maps API key -->
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places&callback=initMap"></script>
   <style>
     /* Custom Tailwind extensions or overrides */
     body {
@@ -21,17 +23,12 @@
       transform: translateY(-4px);
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     }
-    .map-placeholder {
+    #map {
       width: 100%;
-      height: 300px; /* Reduced height for elegance */
-      background-color: #e5e7eb; /* slate-200 */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.25rem;
-      color: #64748b; /* slate-500 */
+      height: 500px;
       border-radius: 0.75rem;
       margin-bottom: 2rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
     /* Responsive adjustments */
     @media (min-width: 768px) {
@@ -89,9 +86,13 @@
       <p class="text-gray-600 text-base md:text-lg">Find QuantumBank ATMs and branches near you with ease.</p>
     </section>
 
-    <!-- Map Placeholder -->
+    <!-- Google Map -->
     <section class="mb-8 md:mb-12">
-      <div class="map-placeholder">Interactive Map (Google Maps API Placeholder)</div>
+      <div id="map"></div>
+      <div id="mapError" class="hidden bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg mt-4">
+        <p class="font-semibold">⚠️ Map Loading Issue</p>
+        <p class="text-sm mt-1">Please ensure you have added your Google Maps API key in the page source. The map requires a valid API key to function.</p>
+      </div>
     </section>
 
     <!-- Search and Filter -->
@@ -149,6 +150,12 @@
   </div>
 
   <script>
+    // Google Maps variables
+    let map;
+    let geocoder;
+    let markers = [];
+    let infoWindow;
+
     // Fetch locations from PHP
     const allLocations = <?php
     $stmt = $conn->prepare("SELECT * FROM locations");
@@ -160,6 +167,164 @@
     }
     echo json_encode($locations);
     ?>;
+
+    // Initialize Google Map
+    function initMap() {
+      try {
+        // Default center (can be set to user's location or a default city)
+        const defaultCenter = { lat: 40.7128, lng: -74.0060 }; // New York City coordinates
+
+      // Initialize map
+      map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 12,
+        center: defaultCenter,
+        mapTypeControl: true,
+        streetViewControl: true,
+        fullscreenControl: true,
+        styles: [
+          {
+            featureType: 'poi',
+            elementType: 'labels',
+            stylers: [{ visibility: 'on' }]
+          }
+        ]
+      });
+
+      geocoder = new google.maps.Geocoder();
+      infoWindow = new google.maps.InfoWindow();
+
+      // Try to get user's current location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const userLocation = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+            map.setCenter(userLocation);
+            map.setZoom(13);
+          },
+          () => {
+            console.log('Geolocation permission denied or unavailable');
+          }
+        );
+      }
+
+      // Load all locations on map
+      loadLocationsOnMap(allLocations);
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        document.getElementById('mapError').classList.remove('hidden');
+      }
+    }
+
+    // Error handler if Google Maps API fails to load
+    window.gm_authFailure = function() {
+      document.getElementById('mapError').classList.remove('hidden');
+      document.getElementById('mapError').innerHTML = `
+        <p class="font-semibold">⚠️ Google Maps API Error</p>
+        <p class="text-sm mt-1">Invalid or missing API key. Please check your Google Maps API key configuration.</p>
+      `;
+    };
+
+    // Add markers to map
+    function loadLocationsOnMap(locations) {
+      // Clear existing markers
+      clearMarkers();
+
+      if (locations.length === 0) {
+        return;
+      }
+
+      const bounds = new google.maps.LatLngBounds();
+
+      locations.forEach(location => {
+        // Geocode address to get coordinates
+        geocoder.geocode({ address: location.address }, (results, status) => {
+          if (status === 'OK' && results[0]) {
+            const position = results[0].geometry.location;
+            
+            // Choose icon based on type
+            const icon = location.type === 'branch' 
+              ? {
+                  path: google.maps.SymbolPath.CIRCLE,
+                  fillColor: '#3b82f6',
+                  fillOpacity: 1,
+                  strokeColor: '#ffffff',
+                  strokeWeight: 2,
+                  scale: 10
+                }
+              : {
+                  path: google.maps.SymbolPath.CIRCLE,
+                  fillColor: '#10b981',
+                  fillOpacity: 1,
+                  strokeColor: '#ffffff',
+                  strokeWeight: 2,
+                  scale: 8
+                };
+
+            // Create marker
+            const marker = new google.maps.Marker({
+              position: position,
+              map: map,
+              title: location.name,
+              icon: icon,
+              animation: google.maps.Animation.DROP
+            });
+
+            // Create info window content
+            const infoContent = `
+              <div class="p-2">
+                <h3 class="font-bold text-lg text-blue-600 mb-1">${location.name}</h3>
+                <p class="text-sm text-gray-700 mb-2">${location.type.toUpperCase()}</p>
+                <p class="text-sm text-gray-600 mb-2">${location.address}</p>
+                ${location.type === 'branch' 
+                  ? `<p class="text-sm text-gray-600 mb-2">Hours: ${location.hours || 'N/A'}</p>`
+                  : `<p class="text-sm text-gray-600 mb-2">Access: ${location.access || '24/7'}</p>`
+                }
+                <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(location.address)}" 
+                   target="_blank" 
+                   class="text-blue-600 hover:underline text-sm">
+                  Get Directions
+                </a>
+              </div>
+            `;
+
+            // Add click listener to marker
+            marker.addListener('click', () => {
+              infoWindow.setContent(infoContent);
+              infoWindow.open(map, marker);
+              showLocationModal(location.id);
+            });
+
+            markers.push(marker);
+            bounds.extend(position);
+
+            // Fit map to show all markers
+            if (markers.length === locations.length) {
+              map.fitBounds(bounds);
+              // If only one marker, zoom in more
+              if (markers.length === 1) {
+                map.setZoom(15);
+              }
+            }
+          } else {
+            console.error('Geocode was not successful for: ' + location.address);
+          }
+        });
+      });
+    }
+
+    // Clear all markers
+    function clearMarkers() {
+      markers.forEach(marker => {
+        marker.setMap(null);
+      });
+      markers = [];
+      if (infoWindow) {
+        infoWindow.close();
+      }
+    }
 
     // Render Locations
     function renderLocations(locationsToDisplay) {
@@ -229,11 +394,28 @@
       }
 
       const results = allLocations.filter(location => {
-        const matchesSearch = location.city.toLowerCase().includes(searchTerm) || location.zip.includes(searchTerm);
+        const matchesSearch = location.city.toLowerCase().includes(searchTerm) || location.zip.includes(searchTerm) || location.address.toLowerCase().includes(searchTerm);
         const matchesType = filteredTypes.includes(location.type);
         return matchesSearch && matchesType;
       });
       renderLocations(results);
+      
+      // Update map with filtered results
+      if (typeof map !== 'undefined' && map) {
+        loadLocationsOnMap(results);
+      } else {
+        // If map not loaded yet, try geocoding the search term and centering map
+        if (searchTerm.trim() !== '') {
+          if (typeof geocoder !== 'undefined' && geocoder) {
+            geocoder.geocode({ address: searchTerm }, (results, status) => {
+              if (status === 'OK' && results[0] && typeof map !== 'undefined' && map) {
+                map.setCenter(results[0].geometry.location);
+                map.setZoom(13);
+              }
+            });
+          }
+        }
+      }
     }
 
     // Filter Locations

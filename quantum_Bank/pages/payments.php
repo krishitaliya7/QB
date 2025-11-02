@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $error = "Invalid card details.";
             }
-        } catch (PDOException $e) {
+        } catch (Exception $e) {
             $error = "Payment failed: " . $e->getMessage();
         }
     }
@@ -205,7 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="container mx-auto px-6 py-4 flex justify-between items-center">
             <a href="index.php" class="text-2xl font-bold tracking-tight font-inter">QuantumBank</a>
             <div class="hidden md:flex items-center space-x-8">
-                <a href="Dashboard.html" class="text-sm font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Dashboard">Dashboard</a>
+                <a href="dashboard.php" class="text-sm font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Dashboard">Dashboard</a>
                 <div class="relative group">
                     <a href="#" class="text-sm font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Accounts">Accounts</a>
                     <div class="absolute hidden group-hover:block bg-white text-gray-800 rounded-lg shadow-lg py-2 mt-2 z-10 min-w-[150px]">
@@ -214,11 +214,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-100">Business</a>
                     </div>
                 </div>
-                <a href="Payments.php" class="text-sm font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Payments">Payments</a>
-                <a href="Cards.php" class="text-sm font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Cards">Cards</a>
+                <a href="payments.php" class="text-sm font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Payments">Payments</a>
+                <a href="cards.php" class="text-sm font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Cards">Cards</a>
                 <a href="#" class="text-sm font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Investments">Investments</a>
                 <a href="#" class="text-sm font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Calculators">Calculators</a>
-                <a href="atmLocator.php" class="text-sm font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="ATM Locator">ATM Locator</a>
+                <a href="atm_locator.php" class="text-sm font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="ATM Locator">ATM Locator</a>
                 <a href="logout.php" class="text-sm font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded" aria-label="Logout">Logout</a>
             </div>
             <button class="md:hidden text-white focus:outline-none" aria-label="Toggle Mobile Menu" id="mobileMenuBtn">
@@ -228,13 +228,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </button>
         </div>
         <div id="mobileMenu" class="hidden md:hidden bg-white text-gray-800 absolute top-0 left-0 w-full h-screen flex flex-col items-center justify-center space-y-6">
-            <a href="Dashboard.html" class="text-lg font-medium hover:text-primary">Dashboard</a>
+            <a href="dashboard.php" class="text-lg font-medium hover:text-primary">Dashboard</a>
             <a href="#" class="text-lg font-medium hover:text-primary">Accounts</a>
-            <a href="Payments.php" class="text-lg font-medium hover:text-primary">Payments</a>
-            <a href="Cards.php" class="text-lg font-medium hover:text-primary">Cards</a>
+            <a href="payments.php" class="text-lg font-medium hover:text-primary">Payments</a>
+            <a href="cards.php" class="text-lg font-medium hover:text-primary">Cards</a>
             <a href="#" class="text-lg font-medium hover:text-primary">Investments</a>
             <a href="#" class="text-lg font-medium hover:text-primary">Calculators</a>
-            <a href="atmLocator.php" class="text-lg font-medium hover:text-primary">ATM Locator</a>
+            <a href="atm_locator.php" class="text-lg font-medium hover:text-primary">ATM Locator</a>
             <a href="logout.php" class="text-lg font-medium hover:text-primary">Logout</a>
             <button id="closeMobileMenu" class="absolute top-4 right-4 text-2xl text-gray-800 focus:outline-none">&times;</button>
         </div>
