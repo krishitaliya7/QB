@@ -78,13 +78,12 @@ $stmt->close();
   <!-- Header Section -->
   <header class="gradient-bg text-white p-6">
     <div class="container mx-auto px-4 flex justify-between items-center">
-      <h1 class="text-2xl md:text-3xl font-bold">QuantumBank</h1>
+      <a href="index.php" class="text-2xl md:text-3xl font-bold" style="cursor: pointer;">Quantum Banking</a>
       <nav class="hidden md:flex">
         <ul class="flex space-x-6">
-          <li><a href="#" class="hover:underline">Dashboard</a></li>
           <li><a href="#" class="hover:underline">Accounts</a></li>
           <li><a href="cards.php" class="hover:underline">Cards</a></li>
-          <li><a href="#" class="hover:underline">Transactions</a></li>
+          <li><a href="#recent-transactions" class="hover:underline">Transactions</a></li>
           <li><a href="loan.php" class="hover:underline">Loans</a></li>
           <li><a href="#" class="hover:underline">Settings</a></li>
           <li><a href="#" class="hover:underline" data-bs-toggle="modal" data-bs-target="#messagesModal">Messages <?php if ($unread_count > 0) echo "<span class=\"badge bg-danger\">$unread_count</span>"; ?></a></li>
@@ -104,13 +103,13 @@ $stmt->close();
     <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6 md:mb-8">
       Welcome back, <?php echo htmlspecialchars($username); ?>!
     </h2>
-    
-    <div class="mb-8 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
-      <p class="text-sm text-gray-600 mb-2">Available Balance</p>
-      <p class="text-3xl font-bold text-gray-800" id="currentBalance">$8,450.23</p>
-      <p class="text-xs text-gray-500">Updated: October 10, 2025</p>
+
+    <!-- Account Balance Section -->
+    <div class="mb-8 p-6 bg-white rounded-xl shadow-md">
+      <h3 class="text-lg font-bold text-gray-800 mb-4">Total Account Balance</h3>
+      <p class="text-3xl font-bold text-gray-900" id="currentBalance"></p>
     </div>
-    
+
     <div class="dashboard-layout grid grid-cols-1 gap-6 md:gap-8">
       <!-- Main Content Area -->
       <div class="space-y-8">
@@ -233,7 +232,7 @@ $stmt->close();
     ];
 
     // Calculate total balance
-    const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
+    const totalBalance = accounts.reduce((sum, account) => sum + parseFloat(account.balance), 0);
 
     // Populate Total Balance
     document.getElementById('currentBalance').textContent = `$${totalBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
@@ -249,7 +248,7 @@ $stmt->close();
             <h4 class="text-lg font-semibold text-gray-800">${account.account_type}</h4>
             <p class="text-gray-500 mb-2">${account.account_number}</p>
           </div>
-          <div class="bg-blue-100 p-2 rounded-lg">
+          <div class="p-2">
             <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>

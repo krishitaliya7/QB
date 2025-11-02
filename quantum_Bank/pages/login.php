@@ -20,38 +20,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
         $result = $stmt->get_result();
         $user = $result->fetch_assoc();
         if ($user && password_verify($password, $user['password'])) {
-            // Temporarily skip email verification for testing
-            // if (isset($user['verified']) && !$user['verified']) {
-            //     $error = 'Please verify your email before logging in. Check your inbox.';
-            // } else {
-                // Generate OTP for login verification
-                $otp = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
-                $otp_hash = password_hash($otp, PASSWORD_DEFAULT);
-                $expires_at = date('Y-m-d H:i:s', time() + 300); // 5 minutes expiry
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = $user['role'] ?? 'user';
+            session_regenerate_id(true);
 
-                // Store OTP in database
-                $stmt_otp = $conn->prepare("INSERT INTO login_otps (user_id, otp_hash, expires_at) VALUES (?, ?, ?)");
-                $stmt_otp->bind_param("iss", $user['id'], $otp_hash, $expires_at);
-                $stmt_otp->execute();
-                $otp_id = $conn->insert_id;
-                $stmt_otp->close();
+            audit_log($conn, 'login.success', $user['id'], ['email' => $email]);
 
-                // Send OTP via email
-                $subject = "QuantumBank Login Verification Code";
-                $message = "Your login verification code is: $otp\n\nThis code will expire in 5 minutes.";
-                $html_message = "<p>Your login verification code is: <strong>$otp</strong></p><p>This code will expire in 5 minutes.</p>";
-                send_mail($email, $subject, $message, '', $html_message);
-
-                // Store temporary session data
-                $_SESSION['login_user_id'] = $user['id'];
-                $_SESSION['login_email'] = $email;
-                $_SESSION['login_otp_id'] = $otp_id;
-
-                audit_log($conn, 'login.otp.sent', $user['id'], ['email' => $email]);
-
-                header('Location: login_verify.php');
-                exit;
-            // }
+            header('Location: dashboard.php');
+            exit;
         } else {
             $error = "Invalid email or password.";
         }
@@ -77,21 +54,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
             $error = "Email already registered. Please log in or use a different email.";
         } else {
             try {
-                $stmt = $conn->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
+                $stmt = $conn->prepare("INSERT INTO users (username, email, password, verified) VALUES (?, ?, ?, 1)");
                 $stmt->bind_param("sss", $username, $email, $password);
                 $stmt->execute();
                 $newUserId = $conn->insert_id;
 
-                $token = bin2hex(random_bytes(32));
-                $expires = date('Y-m-d H:i:s', time() + 86400);
-                $stmt = $conn->prepare('INSERT INTO email_verifications (user_id, token, expires_at) VALUES (?, ?, ?)');
-                $stmt->bind_param("iss", $newUserId, $token, $expires);
-                $link = "http://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . "/verify_email.php?token=$token";
-                include '../includes/email_helpers.php';
-                $html = render_email_template(__DIR__ . '/../includes/email_templates/verify_email.php', ['username' => $username, 'link' => $link]);
-                $msg = "Please verify your email: $link";
-                send_mail($email, 'Verify your QuantumBank email', $msg, '', $html);
-                $success = "Registration successful! Please check your email to verify your account.";
+                $success = "Registration successful! You can now log in.";
 
                 audit_log($conn, 'user.register', $newUserId, ['email' => $email]);
             } catch (Exception $e) {

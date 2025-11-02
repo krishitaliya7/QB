@@ -74,8 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_otp'])) {
 
                 audit_log($conn, 'login.success', $user_id, ['email' => $email]);
 
-                header('Location: dashboard.php');
-                exit;
+                $success = "Login successful! Redirecting to dashboard...";
             } else {
                 // Failed attempt
                 $new_attempts = $otp_record['attempts'] + 1;
@@ -299,11 +298,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_otp'])) {
                     </div>
                 <?php endif; ?>
                 <?php if (isset($success)): ?>
-                    <div class="bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg flex items-center">
+                    <div id="successPopup" class="fixed top-4 right-4 bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg flex items-center shadow-lg z-50 max-w-sm">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                         </svg>
                         <span><?php echo $success; ?></span>
+                        <button id="closePopup" class="ml-4 text-green-600 hover:text-green-800 focus:outline-none">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
                     </div>
                 <?php endif; ?>
                 <div class="hidden md:block">
@@ -316,7 +320,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_otp'])) {
                 <form method="POST" id="otpForm" class="space-y-6">
                     <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
                     <div>
-                        <label for="otp" class="block text-sm font-medium text-gray-700">6-Digit Code</label>
+                        <label for="otp" class="block text-sm font-medium text-white-700">6-Digit Code</label>
                         <input type="text" id="otp" name="otp" placeholder="000000" maxlength="6" pattern="[0-9]{6}" required class="mt-1 block w-full border border-gray-300 rounded-lg py-2.5 px-4 text-sm text-center text-2xl tracking-widest input-focus" aria-describedby="otpError">
                         <p class="error-message" id="otpError">Please enter a valid 6-digit code.</p>
                     </div>
@@ -331,8 +335,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_otp'])) {
                 </form>
 
                 <div class="mt-6 text-center">
-                    <p class="text-sm text-gray-600">Wrong email? <a href="login.php" class="text-primary font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded">Go back to login</a></p>
-                    <p class="text-sm text-gray-600 mt-2">Didn't receive the code? <button type="submit" form="resendForm" class="text-primary hover:underline">Resend code</button></p>
+                    <p class="text-sm text-white-600">Wrong email? <a href="login.php" class="text-primary font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded">Go back to login</a></p>
+                    <p class="text-sm text-white-600 mt-2">Didn't receive the code? <button type="submit" form="resendForm" class="text-primary hover:underline">Resend code</button></p>
                 </div>
             </div>
         </div>
@@ -375,6 +379,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_otp'])) {
         document.getElementById('closeMobileMenu').addEventListener('click', () => {
             document.getElementById('mobileMenu').classList.add('hidden');
         });
+
+        document.getElementById('closePopup')?.addEventListener('click', function() {
+            document.getElementById('successPopup').style.display = 'none';
+        });
+
+        // Auto-hide success popup after 10 seconds
+        setTimeout(() => {
+            const popup = document.getElementById('successPopup');
+            if (popup) popup.style.display = 'none';
+        }, 10000);
+
+        // Redirect to dashboard after successful login
+        if (document.getElementById('successPopup')) {
+            setTimeout(() => {
+                window.location.href = 'dashboard.php';
+            }, 2000); // Redirect after 2 seconds to show the success message briefly
+        }
     </script>
 </body>
 </html>

@@ -33,9 +33,8 @@
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div 
-        >
-            <a class="navbar-brand" href="index.php">QuantumBank</a>
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.php" style="cursor: pointer;">Quantum Banking</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>

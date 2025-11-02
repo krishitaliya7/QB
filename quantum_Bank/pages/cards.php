@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Generate random last four and expiry (for demo; in real, use proper generation)
             $last_four = rand(1000, 9999);
             $expiry_date = date('Y-m-d', strtotime('+3 years'));
-            $stmt = $conn->prepare("INSERT INTO cards (user_id, card_type, card_last4, expiry_date, status) VALUES (?, ?, ?, ?, 'pending')");
+            $stmt = $conn->prepare("INSERT INTO cards (user_id, card_type, card_last4, expiry_date, status) VALUES (?, ?, ?, ?, 'active')");
             $stmt->bind_param("isss", $user_id, $card_type, $last_four, $expiry_date);
             $stmt->execute();
         } elseif ($action === 'activate' || $action === 'deactivate' || $action === 'block') {
@@ -98,6 +98,8 @@ if ($is_admin) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Card Management - Quantum Bank</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -112,6 +114,33 @@ if ($is_admin) {
     </script>
 </head>
 <body class="bg-gray-100 font-sans antialiased">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.php" style="cursor: pointer;">Quantum Banking</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.php">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="dashboard.php">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="open_account.php">Accounts</a></li>
+                    <li class="nav-item"><a class="nav-link" href="payments.php">Payments</a></li>
+                    <li class="nav-item"><a class="nav-link" href="cards.php">Cards</a></li>
+                    <li class="nav-item"><a class="nav-link" href="loan.php">Loans</a></li>
+                    <li class="nav-item"><a class="nav-link" href="atm_locator.php">ATM Locator</a></li>
+                    <li class="nav-item"><a class="nav-link" href="about.php">About</a></li>
+                    <?php if (isLoggedIn()): ?>
+                        <li class="nav-item"><a class="nav-link" href="messages.php">Messages <span class="badge bg-danger" id="unreadCount"><?php echo get_unread_messages_count(getUserId()); ?></span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="dashboard.php">Hello, <?php echo getUsername(); ?></a></li>
+                        <li class="nav-item"><a class="nav-link" href="logout.php">Logout</a></li>
+                    <?php else: ?>
+                        <li class="nav-item"><a class="nav-link" href="login.php">Login</a></li>
+                    <?php endif; ?>
+                </ul>
+            </div>
+        </div>
+    </nav>
     <div class="container mx-auto px-4 py-8">
         <h1 class="text-3xl font-bold text-center mb-8 text-primary">Card Management</h1>
 

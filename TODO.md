@@ -1,13 +1,8 @@
-# Fix Password Reset Page
+# TODO: Replace AI Section with QuantumBank Features Showcase
 
-## Issues Identified
-- Missing `otp` column in `password_resets` table
-- Duplicate and inconsistent code in `password_reset_request.php`
-- OTP not generated or stored during reset request
-- Schema mismatch between code and database
-
-## Tasks
-- [x] Create migration to add `otp` column to `password_resets` table
-- [x] Update `password_reset_request.php` to generate 6-digit OTP, store in table, send via in-app message, and clean up duplicate code
-- [x] Verify `password_reset.php` correctly verifies OTP
-- [x] Test the complete password reset flow
+## Steps to Complete:
+- [ ] Remove the existing "AI-Powered Financial Intelligence" section from index.php
+- [ ] Add the new "QuantumBank Features Showcase" section with promotional visuals and feature cards
+- [ ] Ensure responsive design and visual consistency with the site
+- [ ] Test visual rendering and responsiveness of the new section
+- [ ] Verify functionality of any links or buttons in the new section

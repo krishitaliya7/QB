@@ -1,4 +1,4 @@
-<?php
+?php
 include '../includes/db_connect.php';
 include '../includes/session.php';
 include '../includes/send_mail.php';
@@ -33,10 +33,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Send OTP via in-app message
             add_message($user['id'], 'otp', "Your password reset OTP is: $otp");
             audit_log($conn, 'password.reset.request', $user['id'], ['token_id' => $token_id]);
+            $success = "Your password reset OTP is: $otp";
+        } else {
+            // Always show success message to avoid leaking which emails exist
+            $success = 'If that email exists in our system, a password reset link has been sent.';
         }
-        // Always show success message to avoid leaking which emails exist
-        $success = 'If that email exists in our system, a password reset link has been sent.';
+        $_SESSION['success'] = $success;
     }
+}
+
+if (isset($_SESSION['success'])) {
+    $success = $_SESSION['success'];
+    unset($_SESSION['success']);
 }
 ?>
 <!DOCTYPE html>
@@ -104,6 +112,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             color: var(--success);
             font-size: 0.875rem;
             margin-top: 0.25rem;
+        }
+
+        #successPopup {
+            transition: opacity 0.3s ease;
         }
 
         .btn-primary {
@@ -212,7 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 <?php endif; ?>
                 <?php if (isset($success)): ?>
-                    <div class="bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg flex items-center">
+                    <div id="successPopup" class="fixed top-4 right-4 bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg flex items-center shadow-lg z-50 max-w-sm">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                         </svg>
@@ -259,6 +271,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         document.getElementById('closeMobileMenu').addEventListener('click', () => {
             document.getElementById('mobileMenu').classList.add('hidden');
         });
+
+        // Auto-hide success popup after 5 seconds
+        const successPopup = document.getElementById('successPopup');
+        if (successPopup) {
+            setTimeout(() => {
+                successPopup.style.opacity = '0';
+                setTimeout(() => {
+                    successPopup.remove();
+                }, 300); // Allow fade out animation
+            }, 5000); // 5 seconds
+        }
     </script>
 </body>
 </html>
