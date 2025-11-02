@@ -59,11 +59,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             } elseif ($destinationAccountId === $from) {
                 $error = 'Cannot transfer to the same account.';
             } else {
-                // High-value threshold check
-                $highValueThreshold = 500.00;
-                if ($amount >= $highValueThreshold) {
+                // OTP required for all transfers
+                if (true) {
                     try {
-                        $settings = include __DIR__ . '/../config/settings.php';
+                            $settings = include __DIR__ . '/../admin/config/settings.php';
                         $expirySeconds = $settings['otp_expiry_seconds'] ?? 900;
                         $maxAttempts = $settings['otp_max_attempts'] ?? 5;
 
@@ -102,76 +101,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         }
                         // Audit log
                         audit_log($conn, 'transfer.otp.created', $user_id, ['otp_id' => $otpId, 'from' => $from, 'to' => $destinationAccountId, 'amount' => $amount]);
-                        $success = 'High-value transfer requires verification. An OTP has been sent to your email. <a href="transfer_verify.php">Enter OTP to complete transfer</a>';
+                        $success = 'Transfer requires verification. An OTP has been sent to your email. <a href="transfer_verify.php">Enter OTP to complete transfer</a>';
                     } catch (Exception $e) {
                         $error = 'Failed to initiate secured transfer: ' . $e->getMessage();
-                    }
-                    } else {
-                        try {
-                            $conn->begin_transaction();
-                            // Lock accounts
-                            $stmt = $conn->prepare("SELECT id, user_id, balance FROM accounts WHERE id IN (?, ?) FOR UPDATE");
-                            $stmt->bind_param("ii", $from, $destinationAccountId);
-                            $stmt->execute();
-                            $result = $stmt->get_result();
-                            $rows = $result->fetch_all(MYSQLI_ASSOC);
-                            $balances = [];
-                            $owners = [];
-                            foreach ($rows as $r) {
-                                $id = (int)$r['id'];
-                                $balances[$id] = (float)$r['balance'];
-                                $owners[$id] = (int)$r['user_id'];
-                            }
-                            if (!isset($balances[$from]) || !isset($balances[$destinationAccountId])) {
-                                throw new Exception('One of the accounts was not found.');
-                            }
-                            if ($balances[$from] < $amount) {
-                                throw new Exception('Insufficient funds in source account.');
-                            }
-                            // Update balances
-                            $stmt = $conn->prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?");
-                            $stmt->bind_param("di", $amount, $from);
-                            $stmt->execute();
-                            $stmt = $conn->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
-                            $stmt->bind_param("di", $amount, $destinationAccountId);
-                            $stmt->execute();
-                            // Record transactions
-                            $stmt = $conn->prepare("INSERT INTO transactions (user_id, account_id, description, amount, status) VALUES (?, ?, ?, ?, 'Completed')");
-                            $senderDesc = "Transfer to account $destinationAccountId";
-                            $recipientDesc = "Transfer from account $from";
-                            $stmt->bind_param("iisd", $user_id, $from, $senderDesc, -$amount);
-                            $stmt->execute();
-                            $recipientUserId = $owners[$destinationAccountId];
-                            $stmt->bind_param("iisd", $recipientUserId, $destinationAccountId, $recipientDesc, $amount);
-                            $stmt->execute();
-                            $conn->commit();
-                            // Audit log
-                            audit_log($conn, 'transfer.completed', $user_id, ['from' => $from, 'to' => $destinationAccountId, 'amount' => $amount]);
-                            // Notify recipient
-                            try {
-                                $stmt = $conn->prepare('SELECT email, username FROM users WHERE id = ? LIMIT 1');
-                                $stmt->bind_param("i", $recipientUserId);
-                                $stmt->execute();
-                                $result = $stmt->get_result();
-                                $r = $result->fetch_assoc();
-                                if ($r && !empty($r['email'])) {
-                                    $msg = "Hello {$r['username']},\n\nYou have received a transfer of $" . number_format($amount,2) . " to your account (ID: $destinationAccountId) from account ID $from.\n\nIf you did not expect this, contact support.";
-                                    send_mail($r['email'], 'Incoming transfer', $msg);
-                                }
-                            } catch (Exception $e) {
-                                // ignore
-                            }
-                            $success = 'Transfer completed successfully.';
-                            // Refresh transactions
-                            $stmt = $conn->prepare("SELECT id, created_at, description, amount, status FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 100");
-                            $stmt->bind_param("i", $user_id);
-                            $stmt->execute();
-                            $result = $stmt->get_result();
-                            $transactions = $result->fetch_all(MYSQLI_ASSOC);
-                        } catch (Exception $e) {
-                            try { $conn->rollback(); } catch (Exception $ex) {}
-                            $error = 'Transfer failed: ' . $e->getMessage();
-                        }
                     }
             }
         }

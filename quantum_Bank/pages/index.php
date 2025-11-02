@@ -272,7 +272,7 @@
       <p class="text-center text-base text-gray-600 max-w-2xl mx-auto mb-12 leading-relaxed">Banking products designed to grow with your ambitions.</p>
       <div class="dashboard-grid">
         <!-- Premium Account -->
-        <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl text-white p-6 card-hover" >
+        <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl text-white p-6 card-hover" tabindex="0">
           <div class="flex justify-between items-start mb-6">
             <div>
               <h3 class="text-xl md:text-2xl font-bold">Quantum Premium</h3>
@@ -380,7 +380,7 @@
     <div class="container mx-auto px-6">
       <div class="flex flex-col md:flex-row items-center gap-8">
         <div class="md:w-1/2 mb-10 md:mb-0">
-          <img src="2.jpg" alt="QuantumBank security shield with encryption and protection layers icon" class="w-full max-w-md mx-auto" loading="lazy">
+          <img src="https://storage.googleapis.com/quantum-bank-assets/security-shield.webp" alt="QuantumBank security shield with encryption and protection layers icon" class="w-full max-w-md mx-auto" loading="lazy">
         </div>
         <div class="md:w-1/2 md:pl-12">
           <h2 class="text-3xl md:text-4xl font-bold mb-6 font-poppins">Quantum-Secure Banking</h2>

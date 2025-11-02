@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please enter the OTP code.';
     } else {
         try {
-            $settings = include __DIR__ . '/../config/settings.php';
+            $settings = include __DIR__ . '/../admin/config/settings.php';
             $maxAttempts = $settings['otp_max_attempts'] ?? 5;
             $cooldown = $settings['otp_cooldown_seconds'] ?? 900;
 
